@@ -1,0 +1,13 @@
+syntax: glob
+
+*~
+.*.swp
+*.cmi
+*.cmo
+*.cmx
+*.o
+*.a
+*.cma
+*.cmxa
+._*
+doc/*
