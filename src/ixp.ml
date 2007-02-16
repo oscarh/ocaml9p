@@ -2,11 +2,11 @@ open Fcall
 
 let msize = ref 1024
 
-let address_exp = Str.regexp "unix!\\(.+\\)"
+let adrs_exp = Str.regexp "unix!\\(.+\\)"
 
 let connect () =
     let address = Sys.getenv "WMII_ADDRESS" in
-    let sockaddr = Unix.ADDR_UNIX (if Str.string_match address_exp address 0 then
+    let sockaddr = Unix.ADDR_UNIX (if Str.string_match adrs_exp address 0 then
         Str.matched_group 1 address
     else
         address) in
