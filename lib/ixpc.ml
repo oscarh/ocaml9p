@@ -30,26 +30,51 @@
 (* SUCH DAMAGE.                                                               *)
 (******************************************************************************)
 
-open Printf
+open Fcall
 
-let adrs_exp = Str.regexp "unix!\\(.+\\)"
-let address =
-    let adrs = Sys.getenv "WMII_ADDRESS" in
-    if Str.string_match adrs_exp adrs 0 then Str.matched_group 1 adrs
-    else adrs
+type t = Unix.file_descr
 
-let user = Sys.getenv "USER"
+let msize = ref 1024
 
-let connect () =
-    try 
-        Some (Ixpc.connect address user "")
-    with _ ->
-        fprintf stderr "Error while connecting to %s: " address;
-        None
+exception Socket_error
+exception IXPError
 
-let main () =
-    match connect () with
-    | None -> exit 1
-    | Some ipx -> ()
+let send sockfd data =
+    let data_len = String.length data in
+    let sent_len = Unix.send sockfd data 0 data_len [] in
+    if data_len != sent_len then
+        (print_string "FIXME: data_len != sent_len, this should not print...";
+        false)
+    else true
 
-let _ = main ()
+let receive sockfd =
+    let recv = Unix.recv sockfd in
+    let buff = String.create !msize in
+    let rlen = recv buff 0 4 [] in
+    if rlen = 0 then raise Socket_error;
+    let rlen = recv buff 4 (Fcall.d_int32 buff 0) [] in
+    if rlen = 0 then raise Socket_error
+    else String.sub buff 0 rlen
+
+let version fd = 
+    let tversion = new tVersion !msize in
+    if send fd tversion#serialize then
+        let rversion = new rVersion (receive fd) in
+        msize := rversion#msize
+    else 
+        raise Socket_error
+
+let attach fd user aname = 
+    let tattach = new tAttach None user aname in
+    if send fd tattach#serialize then
+        ignore (new rAttach tattach#tag (receive fd))
+    else
+        raise IXPError
+        
+
+let connect address user aname =
+    let sockaddr = Unix.ADDR_UNIX address in
+    let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+    Unix.connect fd sockaddr;
+    version fd;
+    attach fd user aname

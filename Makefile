@@ -3,7 +3,7 @@ OCAMLMAKEFILE = ./OCamlMakefile
 LIBS = unix str
 
 RESULT = ixp
-SOURCES = src/fcall.ml src/ixp.ml
+SOURCES = lib/fcall.ml lib/ixpc.ml src/client.ml
 all: native-code
 
 include $(OCAMLMAKEFILE)
