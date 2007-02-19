@@ -39,42 +39,57 @@ let msize = ref 1024
 exception Socket_error
 exception IXPError
 
+(* File modes *)
+let oREAD = 0x00
+let oWRITE = 0x01
+let oRDWR = 0x02
+let oEXEC = 0x03
+let oEXCL = 0x04
+let oTRUNC = 0x10
+let oREXEC = 0x20
+let oRCLOSE = 0x40
+let oAPPEND = 0x80
+
 let send sockfd data =
     let data_len = String.length data in
     let sent_len = Unix.send sockfd data 0 data_len [] in
-    if data_len != sent_len then
-        (print_string "FIXME: data_len != sent_len, this should not print...";
-        false)
-    else true
+    if data_len != sent_len then raise Socket_error
 
 let receive sockfd =
-    let recv = Unix.recv sockfd in
-    let buff = String.create !msize in
-    let rlen = recv buff 0 4 [] in
-    if rlen = 0 then raise Socket_error;
-    let rlen = recv buff 4 (Fcall.d_int32 buff 0) [] in
-    if rlen = 0 then raise Socket_error
-    else String.sub buff 0 rlen
+    try 
+        let recv = Unix.recv sockfd in
+        let buff = String.create !msize in
+        let rlen = recv buff 0 4 [] in
+        if rlen = 0 then raise Socket_error;
+        let plen = Fcall.d_int32 buff 0 in
+        let rlen = recv buff 4 plen [] in
+        if rlen = 0 then raise Socket_error
+        else String.sub buff 0 plen
+    with Invalid_argument "Unix.recv" ->
+        raise Socket_error
 
 let version fd = 
     let tversion = new tVersion !msize in
-    if send fd tversion#serialize then
-        let rversion = new rVersion (receive fd) in
-        msize := rversion#msize
-    else 
-        raise Socket_error
+    send fd tversion#serialize;
+    let rversion = new rVersion 0 in
+    rversion#deserialize (receive fd);
+    msize := rversion#msize
 
 let attach fd user aname = 
     let tattach = new tAttach None user aname in
-    if send fd tattach#serialize then
-        ignore (new rAttach tattach#tag (receive fd))
-    else
-        raise IXPError
-        
+    send fd tattach#serialize;
+    let rattach = new rAttach tattach#tag in
+    rattach#deserialize (receive fd);
+    tattach#fid
 
-let connect address user aname =
+let fopen fd fid mode =
+    let topen = new tOpen fid mode in
+    send fd topen#serialize;
+    (ignore (new rOpen topen#tag 0))
+
+let connect address =
     let sockaddr = Unix.ADDR_UNIX address in
     let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     Unix.connect fd sockaddr;
     version fd;
-    attach fd user aname
+    fd

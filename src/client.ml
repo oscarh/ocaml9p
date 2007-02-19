@@ -40,16 +40,10 @@ let address =
 
 let user = Sys.getenv "USER"
 
-let connect () =
-    try 
-        Some (Ixpc.connect address user "")
-    with _ ->
-        fprintf stderr "Error while connecting to %s: " address;
-        None
-
 let main () =
-    match connect () with
-    | None -> exit 1
-    | Some ipx -> ()
+    let conn = Ixpc.connect address in
+    let fid = Ixpc.attach conn user "/" in
+    let x = Ixpc.fopen conn fid Ixpc.oREAD in
+    ()
 
 let _ = main ()
