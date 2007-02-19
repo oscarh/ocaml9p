@@ -410,10 +410,9 @@ class rClunk _tag =
             self#check package
     end
 
-(* Message types *)
+(* TODO implement these: *)
 let tauth = String.make 1 (char_of_int 102)
 let rauth = String.make 1 (char_of_int 103)
-
 let tcreate  = String.make 1 (char_of_int 114)
 let rcreate  = String.make 1 (char_of_int 115)
 let twrite  = String.make 1 (char_of_int 118)
