@@ -46,7 +46,7 @@ let tauth = 255
 let notag = 255
 
 let _tag = ref 0
-let tag () =
+let new_tag () =
     let t = !_tag in
     _tag := t + 1;
     t
@@ -74,27 +74,39 @@ let s_int64 v = s_xbit_int 8 v
 let s_str s = (s_int16 (String.length s)) ^ s
 
 (* De-serialize unsigned int values. *)
-let d_xbit_int str bytes offset =
+let d_intx str bytes offset =
     let v = ref 0 in
     for i = 0 to bytes - 1 do
-        v := !v + ((int_of_char str.[offset + i]) lsl (i * 4))
+        v := !v + ((int_of_char str.[offset + i]) lsl (i * 8))
     done;
     !v
 
 let d_int8 str offset = int_of_char str.[0 + offset]
-let d_int16 str offset = d_xbit_int str 2 offset
-let d_int32 str offset = d_xbit_int str 4 offset
-let d_int64 str offset = d_xbit_int str 8 offset
+let d_int16 str offset = d_intx str 2 offset
+let d_int32 str offset = d_intx str 4 offset
+let d_int64 str offset = d_intx str 8 offset
 let d_str str offset =
     let len = d_int16 str offset in
-    String.sub str (offset + 2) len
+    if len = 0 then ""
+    else String.sub str (offset + 2) len
 
 (* Base class for P9 request transmissions and responses. *)
 class virtual fcall =
     object (self)
+        val mutable mtype = 0
+        val mutable tag = 0
+
         method virtual mtype : int
         method virtual serialize : String.t
         method virtual deserialize : String.t -> unit
+
+        method check package =
+            let mt = d_int8 package 4 in
+            if mt != mtype then raise (Illegal_package_type mt);
+            let psize = d_int32 package 0 in
+            if (String.length package) < psize then raise Package_not_complete;
+            let rtag = d_int16 package 5 in
+            if tag != rtag then raise (Wrong_tag rtag);
     end
 
 let concat = String.concat ""
@@ -103,8 +115,10 @@ class tVersion msize =
     object
         inherit fcall
 
-        val mtype = 100
         val version = V9P2000 (* No other available (?) *)
+
+        initializer
+            mtype <- 100
 
         method mtype = mtype
 
@@ -122,17 +136,17 @@ class tVersion msize =
     end
 
 class rVersion msize =
-    object
+    object (self)
         inherit fcall
 
-        val mtype = 101
         val mutable msize = msize
 
+        initializer
+            mtype <- 101;
+            tag <- notag
+
         method deserialize package =
-            let mt = d_int8 package 4 in
-            if mt != mtype then raise (Illegal_package_type mt);
-            let psize = d_int32 package 0 in
-            if (String.length package) < psize then raise Package_not_complete;
+            self#check package;
             (* Ignore tag. *)
             msize <- d_int32 package 7;
             let vrsn_str = d_str package 11 in
@@ -148,9 +162,11 @@ class tAttach afid uname aname =
     object
         inherit fcall
 
-        val tag = tag ()
-        val mtype = 104
         val fid = fid ()
+
+        initializer
+            mtype <- 104;
+            tag <- new_tag ()
 
         method serialize =
             let s_afid = match afid with
@@ -174,19 +190,16 @@ class tAttach afid uname aname =
     end
 
 class rAttach tag =
-    object
+    object (self)
         inherit fcall
 
-        val mtype = 105
         val quit = 0
 
+        initializer
+            mtype <- 105
+
         method deserialize package =
-            let mt = d_int8 package 4 in
-            if mt != mtype then raise (Illegal_package_type mt);
-            let psize = d_int32 package 0 in
-            if (String.length package) < psize then raise Package_not_complete;
-            let rtag = d_int16 package 5 in
-            if tag != rtag then raise (Wrong_tag rtag)
+            self#check package
 
         method serialize = "" (* FIXME *)
 
@@ -194,19 +207,16 @@ class rAttach tag =
     end
 
 class rError package tag message =
-    object
+    object (self)
         inherit fcall
 
-        val mtype = 107
         val mutable message = message
 
+        initializer
+            mtype <- 107
+
         method deserialize package =
-            let mt = d_int8 package 4 in
-            if mt != mtype then raise (Illegal_package_type mt);
-            let psize = d_int32 package 0 in
-            if (String.length package) < psize then raise Package_not_complete;
-            let rtag = d_int16 package 5 in
-            if tag != rtag then raise (Wrong_tag rtag);
+            self#check package;
             message <- Some (d_str package 7)
 
         method serialize = "" (* FIXME *)
@@ -218,8 +228,9 @@ class tOpen fid mode =
     object
         inherit fcall
 
-        val mtype = 112
-        val tag = tag ()
+        initializer
+            mtype <- 112;
+            tag <- new_tag ()
 
         method serialize =
             let data = concat [
@@ -236,25 +247,72 @@ class tOpen fid mode =
         method tag = tag
     end
 
-class rOpen tag iounit =
+class rOpen _tag _iounit =
+    object (self)
+        inherit fcall
+
+        val mutable iounit = _iounit
+
+        initializer
+            mtype <- 113;
+            tag <- _tag
+
+        method serialize = "" (* FIXME *)
+
+        method deserialize package =
+            self#check package;
+            iounit <- d_int32 package 20
+        
+        method mtype = mtype
+        method iounit = iounit
+    end
+
+class tRead fid offset count =
     object
         inherit fcall
 
-        val mtype = 113
-        val mutable iounit = iounit
+        initializer
+            mtype <- 116;
+            tag <- new_tag ()
+        
+        method serialize =
+            let data = concat [
+                s_int8 mtype;
+                s_int16 tag;
+                s_int32 fid;
+                s_int64 offset;
+                s_int32 count;
+            ] in
+            (s_int32 ((String.length data) + 4)) ^ data
+
+        method deserialize package = (* FIXME *)
+            ()
+
+        method mtype = mtype
+        method tag = tag
+    end
+
+class rRead _tag data =
+    object (self)
+        inherit fcall
+
+        val mutable data = data
+
+        initializer
+            mtype <- 117;
+            tag <- _tag
+
+        method serialize = (* FIXME *)
+            ""
 
         method deserialize package =
-            let mt = d_int8 package 4 in
-            if mt != mtype then raise (Illegal_package_type mt);
-            let psize = d_int32 package 0 in
-            if (String.length package) < psize then raise Package_not_complete;
-            let rtag = d_int16 package 5 in
-            if tag != rtag then raise (Wrong_tag rtag);
-            iounit <- d_int32 package 20
-        
-        method serialize = "" (* FIXME *)
+            self#check package;
+            let count = d_int32 package 7 in
+            data <- (String.sub package 11 count)
+
         method mtype = mtype
-        method iounit = iounit
+        method data = data
+        method count = String.length data
     end
 
 (* Message types *)
@@ -267,8 +325,6 @@ let twalk  = String.make 1 (char_of_int 110)
 let rwalk  = String.make 1 (char_of_int 111)
 let tcreate  = String.make 1 (char_of_int 114)
 let rcreate  = String.make 1 (char_of_int 115)
-let tread  = String.make 1 (char_of_int 116)
-let rread  = String.make 1 (char_of_int 117)
 let twrite  = String.make 1 (char_of_int 118)
 let rwrite  = String.make 1 (char_of_int 119)
 let tclunk  = String.make 1 (char_of_int 120)

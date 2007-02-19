@@ -30,8 +30,6 @@
 (* SUCH DAMAGE.                                                               *)
 (******************************************************************************)
 
-open Printf
-
 let adrs_exp = Str.regexp "unix!\\(.+\\)"
 let address =
     let adrs = Sys.getenv "WMII_ADDRESS" in
@@ -43,7 +41,9 @@ let user = Sys.getenv "USER"
 let main () =
     let conn = Ixpc.connect address in
     let fid = Ixpc.attach conn user "/" in
-    let x = Ixpc.fopen conn fid Ixpc.oREAD in
-    ()
+    let iounit = Ixpc.fopen conn fid Ixpc.oREAD in
+    let data = Ixpc.read conn fid iounit 0 4090 in
+    Ixpc.print_dir data;
+    print_newline ()
 
 let _ = main ()
