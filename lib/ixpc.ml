@@ -74,6 +74,8 @@ let oREXEC = 0x20
 let oRCLOSE = 0x40
 let oAPPEND = 0x80
 
+let delimiter_exp = Str.regexp "/"
+
 let (+=) ref inc =
     ref := !ref + inc
 
@@ -92,6 +94,33 @@ let receive sockfd =
         if rlen = 0 then raise Socket_error
         else String.sub buff 0 plen
             
+let fopen (fd, _) fid mode =
+    let topen = new tOpen fid mode in
+    send fd topen#serialize;
+    let ropen = new rOpen topen#tag 0 in
+    ropen#deserialize (receive fd);
+    ropen#iounit
+
+let version fd = 
+    let tversion = new tVersion !msize in
+    send fd tversion#serialize;
+    let rversion = new rVersion 0 in
+    rversion#deserialize (receive fd);
+    msize := rversion#msize
+
+let walk fd oldfid file =
+    let wname = Str.split delimiter_exp file in
+    let twalk = new tWalk oldfid false wname in
+    send fd twalk#serialize;
+    let rwalk = new rWalk twalk#tag 0 in
+    rwalk#deserialize (receive fd);
+    twalk#newfid
+
+(* Returns (fid * iounit) *)
+let walk_open fd oldfid file mode =
+    let newfid = walk fd oldfid file in
+    (newfid, fopen (fd, 0) newfid mode)
+
 let unpack_files data = 
     let rec unpack_files data acc =
         let offset = ref 0 in
@@ -147,7 +176,14 @@ let unpack_files data =
             List.rev (record :: acc) in
     unpack_files data []
 
-let read fd fid iounit offset count =
+let clunk (fd, _) fid =
+    let tclunk = new tClunk fid in
+    send fd tclunk#serialize;
+    let rclunk = new rClunk tclunk#tag in
+    rclunk#deserialize (receive fd)
+
+(* Low level function *)
+let read (fd, _) fid iounit offset count =
     let rec read buff offset =
         let tread = new tRead fid offset count in
         send fd tread#serialize;
@@ -159,30 +195,23 @@ let read fd fid iounit offset count =
             buff in
     read "" offset
 
-let version fd = 
-    let tversion = new tVersion !msize in
-    send fd tversion#serialize;
-    let rversion = new rVersion 0 in
-    rversion#deserialize (receive fd);
-    msize := rversion#msize
+let fread (fd, rootfid) file offset count =
+    let fid, iounit = walk_open fd rootfid file oREAD in
+    let data = read (fd, 0) fid iounit offset count in
+    clunk (fd, 0) fid;
+    data
 
-let attach fd user aname = 
+(* Returns new t *)
+let attach (fd, _) user aname = 
     let tattach = new tAttach None user aname in
     send fd tattach#serialize;
     let rattach = new rAttach tattach#tag in
     rattach#deserialize (receive fd);
-    tattach#fid
-
-let fopen fd fid mode =
-    let topen = new tOpen fid mode in
-    send fd topen#serialize;
-    let ropen = new rOpen topen#tag 0 in
-    ropen#deserialize (receive fd);
-    ropen#iounit
+    (fd, tattach#fid)
 
 let connect address =
     let sockaddr = Unix.ADDR_UNIX address in
     let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     Unix.connect fd sockaddr;
     version fd;
-    fd
+    (fd, 0)

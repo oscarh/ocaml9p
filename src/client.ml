@@ -49,7 +49,8 @@ let print_file dir =
     let owner = dir.Ixpc.uid in
     let group = dir.Ixpc.gid in
     let name = dir.Ixpc.name in
-    printf "%s\t%s\t%s\n" owner group name
+    let size = dir.Ixpc.length in
+    printf "%s\t%s\t%d\t%s\n" owner group size name
 
 let print_dirs dirs =
     try
@@ -60,9 +61,8 @@ let print_dirs dirs =
 
 let main () =
     let conn = Ixpc.connect address in
-    let fid = Ixpc.attach conn user "/" in
-    let iounit = Ixpc.fopen conn fid Ixpc.oREAD in
-    let data = Ixpc.read conn fid iounit 0 4090 in
+    let conn = Ixpc.attach conn user "/" in
+    let data = Ixpc.fread conn "/bar/status" 0 4090 in
     let dirs = Ixpc.unpack_files data in
     print_dirs dirs
 

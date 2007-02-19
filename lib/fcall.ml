@@ -57,11 +57,21 @@ let new_tag () =
 
 let nofid = String.make 4 (char_of_int 255)
 let _fids = ref []
-let fid () =
+let new_fid () =
     let rec check fid = 
         if List.mem fid !_fids then check (fid + 1)
         else (_fids := fid :: !_fids; fid) in
     check 0
+let reuse_fid fid =
+    let rec remove l f prev = 
+        match l with
+        | hd :: tl -> 
+            if hd = f then 
+                (List.rev prev) @ tl 
+            else 
+                remove tl f (hd :: prev)
+        | [] -> List.rev prev in
+    _fids := remove !_fids fid []
 
 (* Serialize values *)
 let s_xbit_int bytes v =
@@ -100,7 +110,7 @@ class virtual fcall =
         val mutable mtype = 0
         val mutable tag = 0
 
-        method virtual mtype : int
+        method mtype = mtype
         method virtual serialize : String.t
         method virtual deserialize : String.t -> unit
 
@@ -166,7 +176,7 @@ class tAttach afid uname aname =
     object
         inherit fcall
 
-        val fid = fid ()
+        val fid = new_fid ()
 
         initializer
             mtype <- 104;
@@ -224,8 +234,59 @@ class rError package tag message =
             message <- Some (d_str package 7)
 
         method serialize = "" (* FIXME *)
-        method mtype = mtype
         method message = message
+    end
+
+let tflush  = String.make 1 (char_of_int 108)
+let rflush  = String.make 1 (char_of_int 109)
+
+class tWalk fid use_old wname = 
+    object
+        inherit fcall
+
+        val newfid = if use_old then fid else new_fid ()
+
+        initializer
+            mtype <- 110;
+            tag <- new_tag ()
+
+        method serialize = 
+            let buff = Buffer.create 1024 in
+            List.iter (fun e -> Buffer.add_string buff (s_str e)) wname;
+            let nwname = (s_int16 (List.length wname)) in
+            let wname = Buffer.contents buff in
+            let data = concat [
+                s_int8 mtype;
+                s_int16 tag;
+                s_int32 fid;
+                s_int32 newfid;
+                nwname;
+                wname;
+            ] in
+            s_int32 ((String.length data) + 4) ^ data
+                
+        method deserialize package = () (* FIXME *)
+
+        method mtype = mtype
+        method tag = tag
+        method newfid = newfid
+    end
+
+class rWalk _tag nwquid =
+    object (self)
+        inherit fcall
+
+        val mutable nwquid = nwquid
+        (* val mutable quid = quid *)
+
+        initializer
+            mtype <- 111;
+            tag <- _tag
+
+        method serialize = "" (* FIXME *)
+        method deserialize package =
+            self#check package;
+            nwquid <- d_int16 package 7
     end
 
 class tOpen fid mode =
@@ -247,7 +308,6 @@ class tOpen fid mode =
 
         method deserialize package = () (* FIXME *)
 
-        method mtype = mtype
         method tag = tag
     end
 
@@ -267,7 +327,6 @@ class rOpen _tag _iounit =
             self#check package;
             iounit <- d_int32 package 20
         
-        method mtype = mtype
         method iounit = iounit
     end
 
@@ -292,7 +351,6 @@ class tRead fid offset count =
         method deserialize package = (* FIXME *)
             ()
 
-        method mtype = mtype
         method tag = tag
     end
 
@@ -314,25 +372,52 @@ class rRead _tag data =
             let count = d_int32 package 7 in
             data <- (String.sub package 11 count)
 
-        method mtype = mtype
         method data = data
         method count = String.length data
+    end
+class tClunk fid =
+    object
+        inherit fcall
+
+        initializer
+            reuse_fid fid;
+            mtype <- 120;
+            tag <- new_tag ()
+
+        method serialize =
+            let data = concat [
+                s_int8 mtype;
+                s_int16 tag;
+                s_int32 fid;
+            ] in
+            s_int32 ((String.length data) + 4) ^ data
+
+        method deserialize package = () (* FIXME *)
+
+        method tag = tag
+    end
+
+class rClunk _tag =
+    object (self)
+        inherit fcall
+
+        initializer
+            mtype <- 121;
+            tag <- _tag
+
+        method serialize = "" (* FIXME *)
+        method deserialize package =
+            self#check package
     end
 
 (* Message types *)
 let tauth = String.make 1 (char_of_int 102)
 let rauth = String.make 1 (char_of_int 103)
 
-let tflush  = String.make 1 (char_of_int 108)
-let rflush  = String.make 1 (char_of_int 109)
-let twalk  = String.make 1 (char_of_int 110)
-let rwalk  = String.make 1 (char_of_int 111)
 let tcreate  = String.make 1 (char_of_int 114)
 let rcreate  = String.make 1 (char_of_int 115)
 let twrite  = String.make 1 (char_of_int 118)
 let rwrite  = String.make 1 (char_of_int 119)
-let tclunk  = String.make 1 (char_of_int 120)
-let rclunk  = String.make 1 (char_of_int 121)
 let tremove  = String.make 1 (char_of_int 122)
 let rremove  = String.make 1 (char_of_int 123)
 let tstat  = String.make 1 (char_of_int 124)
