@@ -30,6 +30,14 @@
 (* SUCH DAMAGE.                                                               *)
 (******************************************************************************)
 
+(*
+ * IXP Library Client interface.
+ * http://v9fs.sourceforge.net/rfc/
+ *
+ * Primarily written to be used with WMII.
+ * http://www.suckless.org/wmii
+ *)
+
 open Fcall
 
 type t = Unix.file_descr

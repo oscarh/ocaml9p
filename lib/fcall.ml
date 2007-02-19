@@ -31,7 +31,11 @@
 (******************************************************************************)
 
 (*
- * Implementation of http://v9fs.sourceforge.net/rfc/
+ * IXP Library serialization / de-serialization interface
+ * http://v9fs.sourceforge.net/rfc/
+ *
+ * Object Oriented interface to the IXP packages.
+ * Primarily meant to be used through the Ixpc module.
  *)
 
 type version = V9P2000
