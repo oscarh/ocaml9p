@@ -1,6 +1,0 @@
-LIBS = unix str
-RESULT = ixp
-SOURCES = lib/fcall.ml lib/ixpc.ml
-all: native-code-library
-
-include $(OCAMLMAKEFILE)

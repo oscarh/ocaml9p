@@ -108,7 +108,7 @@ let main () =
         | "--help" -> cmd := None; Array.length Sys.argv
         | _ -> cmd := None; Array.length Sys.argv in
         if next < Array.length Sys.argv then parse next in
-    parse 1;
+    if Array.length Sys.argv > 1 then parse 1;
     match !cmd with
     | Some command -> run !ixp_address command
     | None -> print_string usage; print_newline ()

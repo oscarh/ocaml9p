@@ -1,7 +1,0 @@
-LIBS = unix str ixp
-RESULT = oixpc
-SOURCES = src/client.ml
-INCDIRS = lib
-all: native-code
-
-include $(OCAMLMAKEFILE)
