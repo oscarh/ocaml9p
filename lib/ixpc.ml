@@ -40,7 +40,7 @@
 
 open Fcall
 
-type t = Unix.file_descr
+type t = (Unix.file_descr * int)
 
 let msize = ref 4096
 
