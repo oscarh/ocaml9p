@@ -195,11 +195,32 @@ let read (fd, _) fid iounit offset count =
             buff in
     read "" offset
 
+(* Low level function *)
+let write (fd, _) fid iounit offset count data = 
+    let rec write offset count =
+        let max_write = if iounit > count then count else iounit in
+        let d = String.sub data offset max_write in
+        let twrite = new tWrite fid offset max_write d in
+        send fd twrite#serialize;
+        let rwrite = new rWrite twrite#tag 0 in
+        rwrite#deserialize (receive fd);
+        if rwrite#count != max_write then raise IXPError;
+        if offset + max_write < count then
+            write (offset + max_write) (count - max_write) in
+    write offset count;
+    count
+
 let fread (fd, rootfid) file offset count =
     let fid, iounit = walk_open fd rootfid file oREAD in
     let data = read (fd, 0) fid iounit offset count in
     clunk (fd, 0) fid;
     data
+
+let fwrite (fd, rootfid) file offset count data =
+    let fid, iounit = walk_open fd rootfid file oWRITE in
+    let count = write (fd, rootfid) fid iounit count data in
+    clunk (fd, rootfid) fid;
+    count
 
 (* Returns new t *)
 let attach (fd, _) user aname = 
