@@ -88,7 +88,7 @@ let run address cmd =
     match cmd with
     | Read file -> read address file
     | Write file -> write address file
-    | Ls file -> ls address file
+    | Ls dir -> ls address dir
 
 let main () =
     let cmd = ref None in
