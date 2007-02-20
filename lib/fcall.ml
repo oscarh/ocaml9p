@@ -1,7 +1,7 @@
 (******************************************************************************)
 (* OCaml-IXP                                                                  *)
 (*                                                                            *)
-(* Copyright 2007 Oscar Hellström oscar at oscarh dot net.                    *)
+(* Copyright 2007 Oscar Hellström, oscar at oscarh dot net.                   *)
 (* All rights reserved                                                        *)
 (* Redistribution and use in source and binary forms, with or without         *)
 (* modification, are permitted provided that the following conditions are     *)
@@ -146,7 +146,7 @@ class tVersion msize =
             ] in
             s_int32 ((String.length data) + 4) ^ data
 
-        method deserialize package = () (* FIXME *)
+        method deserialize package = () (* TODO *)
     end
 
 class rVersion msize =
@@ -167,7 +167,7 @@ class rVersion msize =
             if not (vrsn_str = "9P2000") then 
                 raise (Unsupported_version vrsn_str)
 
-        method serialize = "" (* FIXME *)
+        method serialize = "" (* TODO *)
         method mtype = mtype
         method msize = msize
     end
@@ -196,7 +196,7 @@ class tAttach afid uname aname =
             ] in
             s_int32 ((String.length data) + 4) ^ data
 
-        method deserialize package = () (* FIXME *)
+        method deserialize package = () (* TODO *)
 
         method mtype = mtype
         method tag = tag
@@ -215,7 +215,7 @@ class rAttach tag =
         method deserialize package =
             self#check package
 
-        method serialize = "" (* FIXME *)
+        method serialize = "" (* TODO *)
 
         method mtype = mtype
     end
@@ -233,7 +233,7 @@ class rError package tag message =
             self#check package;
             message <- Some (d_str package 7)
 
-        method serialize = "" (* FIXME *)
+        method serialize = "" (* TODO *)
         method message = message
     end
 
@@ -265,7 +265,7 @@ class tWalk fid use_old wname =
             ] in
             s_int32 ((String.length data) + 4) ^ data
                 
-        method deserialize package = () (* FIXME *)
+        method deserialize package = () (* TODO *)
 
         method mtype = mtype
         method tag = tag
@@ -283,7 +283,7 @@ class rWalk _tag nwquid =
             mtype <- 111;
             tag <- _tag
 
-        method serialize = "" (* FIXME *)
+        method serialize = "" (* TODO *)
         method deserialize package =
             self#check package;
             nwquid <- d_int16 package 7
@@ -306,7 +306,7 @@ class tOpen fid mode =
             ] in
             (s_int32 ((String.length data) + 4)) ^ data
 
-        method deserialize package = () (* FIXME *)
+        method deserialize package = () (* TODO *)
 
         method tag = tag
     end
@@ -321,7 +321,7 @@ class rOpen _tag _iounit =
             mtype <- 113;
             tag <- _tag
 
-        method serialize = "" (* FIXME *)
+        method serialize = "" (* TODO *)
 
         method deserialize package =
             self#check package;
@@ -348,7 +348,7 @@ class tRead fid offset count =
             ] in
             (s_int32 ((String.length data) + 4)) ^ data
 
-        method deserialize package = (* FIXME *)
+        method deserialize package = (* TODO *)
             ()
 
         method tag = tag
@@ -364,7 +364,7 @@ class rRead _tag data =
             mtype <- 117;
             tag <- _tag
 
-        method serialize = (* FIXME *)
+        method serialize = (* TODO *)
             ""
 
         method deserialize package =
@@ -375,6 +375,30 @@ class rRead _tag data =
         method data = data
         method count = String.length data
     end
+
+class tWrite =
+    object (self)
+        inherit fcall
+        
+        initializer
+            mtype <- 118
+
+        method serialize = "" (* TODO *)
+        method deserialize package = () (* TODO *)
+    end
+
+class rWrite _tag =
+    object (self)
+        inherit fcall
+        
+        initializer
+            mtype <- 119;
+            tag <- _tag
+
+        method serialize = "" (* TODO *)
+        method deserialize package = () (* TODO *)
+    end
+
 class tClunk fid =
     object
         inherit fcall
@@ -392,7 +416,7 @@ class tClunk fid =
             ] in
             s_int32 ((String.length data) + 4) ^ data
 
-        method deserialize package = () (* FIXME *)
+        method deserialize package = () (* TODO *)
 
         method tag = tag
     end
@@ -405,7 +429,7 @@ class rClunk _tag =
             mtype <- 121;
             tag <- _tag
 
-        method serialize = "" (* FIXME *)
+        method serialize = "" (* TODO *)
         method deserialize package =
             self#check package
     end
@@ -415,8 +439,6 @@ let tauth = String.make 1 (char_of_int 102)
 let rauth = String.make 1 (char_of_int 103)
 let tcreate  = String.make 1 (char_of_int 114)
 let rcreate  = String.make 1 (char_of_int 115)
-let twrite  = String.make 1 (char_of_int 118)
-let rwrite  = String.make 1 (char_of_int 119)
 let tremove  = String.make 1 (char_of_int 122)
 let rremove  = String.make 1 (char_of_int 123)
 let tstat  = String.make 1 (char_of_int 124)
