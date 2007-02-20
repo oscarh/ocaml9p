@@ -222,6 +222,19 @@ let fwrite fd relfid file offset count data =
     clunk fd fid;
     count
 
+let remove fd fid =
+    let tremove = new tRemove fid in
+    send fd tremove#serialize;
+    let rremove = new rRemove tremove#tag in
+    rremove#deserialize (receive fd)
+
+let create fd fid name perm mode =
+    let tcreate = new tCreate fid name perm mode in
+    send fd tcreate#serialize;
+    let rcreate = new rCreate tcreate#tag 0 in
+    rcreate#deserialize (receive fd);
+    rcreate#iounit
+
 let attach fd user aname = 
     let tattach = new tAttach None user aname in
     send fd tattach#serialize;

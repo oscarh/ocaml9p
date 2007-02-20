@@ -357,6 +357,47 @@ class rOpen _tag _iounit =
         method iounit = iounit
     end
 
+class tCreate fid name perm mode =
+    object 
+        inherit fcall
+        
+        initializer
+            mtype <- 114;
+            tag <- new_tag ()
+
+        method serialize =
+            let data = concat [
+                s_int8 mtype;
+                s_int16 tag;
+                s_int32 fid;
+                s_str name;
+                s_int32 perm;
+                s_int8 mode;
+            ] in
+            s_int32 ((String.length data) + 4) ^ data
+
+        method deserialize package = () (* TODO *)
+    end
+
+class rCreate _tag iounit =
+    object (self)
+        inherit fcall
+
+        val mutable iounit = iounit
+
+        initializer
+            mtype <- 115;
+            tag <- _tag
+
+        method serialize = "" (* TODO *)
+
+        method deserialize package =
+            self#check package;
+            iounit <- d_int32 package 20;
+
+        method iounit = iounit
+    end
+
 class tRead fid offset count =
     object
         inherit fcall
@@ -474,13 +515,42 @@ class rClunk _tag =
             self#check package
     end
 
+class tRemove fid =
+    object
+        inherit fcall
+        
+        initializer
+            mtype <- 122;
+            tag <- new_tag ()
+
+        method serialize =
+            let data = concat [
+                s_int8 mtype;
+                s_int16 tag;
+                s_int32 fid;
+            ] in
+            s_int32 ((String.length data) + 4) ^ data
+
+        method deserialize package = () (* TODO *)
+    end
+
+class rRemove _tag =
+    object (self)
+        inherit fcall
+        
+        initializer
+            mtype <- 123;
+            tag <- _tag
+
+        method serialize = "" (* TODO *)
+
+        method deserialize package =
+            self#check package
+    end
+
 (* TODO implement these: *)
 let tauth = String.make 1 (char_of_int 102)
 let rauth = String.make 1 (char_of_int 103)
-let tcreate  = String.make 1 (char_of_int 114)
-let rcreate  = String.make 1 (char_of_int 115)
-let tremove  = String.make 1 (char_of_int 122)
-let rremove  = String.make 1 (char_of_int 123)
 let tstat  = String.make 1 (char_of_int 124)
 let rstat  = String.make 1 (char_of_int 125)
 let twstat  = String.make 1 (char_of_int 126)
