@@ -37,7 +37,8 @@
 
 open Printf
 
-type cmd = Read of string | Write of string | Ls of string
+type cmd = Read of string | Write of string | Ls of string 
+        | Create of (string * string) | Remove of string
 
 let adrs_exp = Str.regexp "unix!\\(.+\\)"
 let wmii_address =
@@ -61,10 +62,12 @@ let print_dirs dirs =
     with _ ->
         ()
 
-let do_read address file =
+(* Returns fid * iounit *)
+let open_fid address file =
     let conn = Ixpc.connect address in
     let rootfid = Ixpc.attach conn user "/" in
-    Ixpc.fread conn rootfid file 0 4090
+    let _, iounit = Ixpc.walk_open conn rootfid true file Ixpc.oREAD in
+    (conn, rootfid, iounit)
 
 let write address file =
     let buff = String.create 4096 in
@@ -77,16 +80,42 @@ let write address file =
         printf "Warning: Could only write %d bytes" count
 
 let read address file =
-    let data = do_read address file in
-    print_string data
+    let conn, fid, iounit = open_fid address file in
+    let rec read offset =
+        let data = Ixpc.read conn fid iounit offset 4096 in
+        print_string data;
+        flush stdout;
+        let len = String.length data in
+        if len > 0 then
+            read (offset + len) in
+    read 0;
+    Ixpc.clunk conn fid
 
 let ls address dir =
-    let data = do_read address dir in
-    print_dirs (Ixpc.unpack_files data)
+    let conn, fid, iounit = open_fid address dir in
+    let data = Ixpc.read conn fid iounit 0 4096 in
+    print_dirs (Ixpc.unpack_files data);
+    Ixpc.clunk conn fid
+
+let create name dir =
+    let conn = Ixpc.connect wmii_address in
+    let fid = Ixpc.attach conn user dir in
+    let newfid = Ixpc.create conn fid name 666 Ixpc.oWRITE in
+    Ixpc.clunk conn newfid;
+    Ixpc.clunk conn fid
+
+let remove name =
+    let conn = Ixpc.connect wmii_address in
+    let fid = Ixpc.attach conn user "/" in
+    let fid = Ixpc.walk conn fid true name in
+    Ixpc.clunk conn fid;
+    printf "remove %s\n" name
 
 let run address cmd =
     match cmd with
     | Read file -> read address file
+    | Create (name, dir) -> create name dir
+    | Remove name -> remove name
     | Write file -> write address file
     | Ls dir -> ls address dir
 
@@ -95,19 +124,24 @@ let main () =
     let ixp_address = ref wmii_address in
     let usage = "usage: " ^ 
         Sys.argv.(0) ^ " [-a <address>] read | write | ls <file>" ^
-        "\nread\t- Read from a file\n" ^
-        "write\t- Write from a file\n" ^
-        "ls\t- Read from a directory\n" ^
-        "--help\t- Print this help" in
+        "\ncreate <name>   - Create a file in dir with name\n" ^
+        "remove          - Create file\n" ^
+        "read            - Read from a file\n" ^
+        "write           - Write from a file\n" ^
+        "ls              - Read from a directory\n" ^
+        "--help          - Print this help" in
     let rec parse i =
-        let next = match Sys.argv.(i) with
-        | "read" -> cmd := Some (Read Sys.argv.(i + 1)); i + 2
-        | "write" -> cmd := Some (Write Sys.argv.(i + 1)); i + 2
-        | "ls" -> cmd := Some (Ls Sys.argv.(i + 1)); i + 2
-        | "-a" -> ixp_address := Sys.argv.(i + 1); i + 2
-        | "--help" -> cmd := None; Array.length Sys.argv
-        | _ -> cmd := None; Array.length Sys.argv in
-        if next < Array.length Sys.argv then parse next in
+        if i < (Array.length Sys.argv) - 1 then
+            let next = match Sys.argv.(i) with
+            | "create" -> if Array.length Sys.argv > i + 2 then
+                cmd := Some (Create (Sys.argv.(i + 1), Sys.argv.(i + 2))); i + 3
+            | "remove" -> cmd := Some (Remove Sys.argv.(i + 1)); i + 2
+            | "read" -> cmd := Some (Read Sys.argv.(i + 1)); i + 2
+            | "write" -> cmd := Some (Write Sys.argv.(i + 1)); i + 2
+            | "ls" -> cmd := Some (Ls Sys.argv.(i + 1)); i + 2
+            | "-a" -> ixp_address := Sys.argv.(i + 1); i + 2
+            | _ -> cmd := None; Array.length Sys.argv in
+            if next < Array.length Sys.argv then parse next in
     if Array.length Sys.argv > 1 then parse 1;
     match !cmd with
     | Some command -> run !ixp_address command

@@ -108,17 +108,17 @@ let version fd =
     rversion#deserialize (receive fd);
     msize := rversion#msize
 
-let walk fd oldfid file =
+let walk fd oldfid reuse file =
     let wname = Str.split delimiter_exp file in
-    let twalk = new tWalk oldfid false wname in
+    let twalk = new tWalk oldfid reuse wname in
     send fd twalk#serialize;
     let rwalk = new rWalk twalk#tag 0 in
     rwalk#deserialize (receive fd);
     twalk#newfid
 
 (* Returns (fid * iounit) *)
-let walk_open fd oldfid file mode =
-    let newfid = walk fd oldfid file in
+let walk_open fd oldfid reuse file mode =
+    let newfid = walk fd oldfid reuse file in
     (newfid, fopen fd newfid mode)
 
 let unpack_files data = 
@@ -184,16 +184,11 @@ let clunk fd fid =
 
 (* Low level function *)
 let read fd fid iounit offset count =
-    let rec read buff offset =
-        let tread = new tRead fid offset count in
-        send fd tread#serialize;
-        let rread = new rRead tread#tag "" in
-        rread#deserialize (receive fd);
-        if rread#count > 0 then
-            read (buff ^ rread#data) (offset + rread#count)
-        else 
-            buff in
-    read "" offset
+    let tread = new tRead fid offset count in
+    send fd tread#serialize;
+    let rread = new rRead tread#tag "" in
+    rread#deserialize (receive fd);
+    rread#data
 
 (* Low level function *)
 let write fd fid iounit offset count data = 
@@ -210,14 +205,8 @@ let write fd fid iounit offset count data =
     write offset count;
     count
 
-let fread fd relfid file offset count =
-    let fid, iounit = walk_open fd relfid file oREAD in
-    let data = read fd fid iounit offset count in
-    clunk fd fid;
-    data
-
 let fwrite fd relfid file offset count data =
-    let fid, iounit = walk_open fd relfid file oWRITE in
+    let fid, iounit = walk_open fd relfid false file oWRITE in
     let count = write fd fid iounit offset count data in
     clunk fd fid;
     count

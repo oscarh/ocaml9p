@@ -43,7 +43,7 @@ type version = V9P2000
 exception Unsupported_version of string
 exception Illegal_package_type of int
 exception Package_not_complete
-exception Wrong_tag of int
+exception Wrong_tag of int * int
 
 (* Message tags *)
 let tauth = 255
@@ -121,7 +121,7 @@ class virtual fcall =
             let psize = d_int32 package 0 in
             if (String.length package) < psize then raise Package_not_complete;
             let rtag = d_int16 package 5 in
-            if tag != rtag then raise (Wrong_tag rtag);
+            if tag != rtag then raise (Wrong_tag (tag, rtag));
     end
 
 let concat = String.concat ""
@@ -203,14 +203,15 @@ class tAttach afid uname aname =
         method fid = fid
     end
 
-class rAttach tag =
+class rAttach _tag =
     object (self)
         inherit fcall
 
         val quit = 0
 
         initializer
-            mtype <- 105
+            mtype <- 105;
+            tag <- _tag
 
         method deserialize package =
             self#check package
