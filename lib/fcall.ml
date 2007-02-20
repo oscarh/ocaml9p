@@ -376,27 +376,46 @@ class rRead _tag data =
         method count = String.length data
     end
 
-class tWrite =
+class tWrite fid offset count data =
     object (self)
         inherit fcall
         
         initializer
-            mtype <- 118
+            mtype <- 118;
+            tag <- new_tag ();
 
-        method serialize = "" (* TODO *)
+        method serialize =
+            let package = concat [
+                s_int8 mtype;
+                s_int16 tag;
+                s_int32 fid;
+                s_int64 offset;
+                s_int32 count;
+                data;
+            ] in
+            s_int32 ((String.length package) + 4) ^ package
+
         method deserialize package = () (* TODO *)
+
+        method tag = tag
     end
 
-class rWrite _tag =
+class rWrite _tag count =
     object (self)
         inherit fcall
+
+        val mutable count = count
         
         initializer
             mtype <- 119;
             tag <- _tag
 
         method serialize = "" (* TODO *)
-        method deserialize package = () (* TODO *)
+        method deserialize package =
+            self#check package;
+            count <- d_int32 package 7;
+
+        method count = count
     end
 
 class tClunk fid =
