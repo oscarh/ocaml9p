@@ -1,9 +1,14 @@
-OCAMLMAKEFILE = ./OCamlMakefile
+export OCAMLMAKEFILE = ./OCamlMakefile
 
-LIBS = unix str
+all: ixp.cmxa oixpc 
 
-RESULT = ixp
-SOURCES = lib/fcall.ml lib/ixpc.ml src/client.ml
-all: native-code
+ixp.cmxa:
+	@make -f Makefile_lib
 
-include $(OCAMLMAKEFILE)
+oixpc:
+	@make -f Makefile_client
+
+.PHONY: clean
+clean:
+	@make -f Makefile_lib clean
+	@make -f Makefile_client clean
