@@ -74,7 +74,7 @@ let reuse_fid fid =
     _fids := remove !_fids fid []
 
 (* Serialize values *)
-let s_xbit_int bytes v =
+let s_intx bytes v =
     let str = String.create bytes in
     for i = 0 to (bytes - 1) do
         str.[i] <- char_of_int ((v lsr (i * 8)) land 255)
@@ -82,9 +82,9 @@ let s_xbit_int bytes v =
     str
 
 let s_int8 v = String.make 1 (char_of_int v)
-let s_int16 v = s_xbit_int 2 v
-let s_int32 v = s_xbit_int 4 v
-let s_int64 v = s_xbit_int 8 v
+let s_int16 v = s_intx 2 v
+let s_int32 v = s_intx 4 v
+let s_int64 v = s_intx 8 v
 let s_str s = (s_int16 (String.length s)) ^ s
 
 (* De-serialize unsigned int values. *)
@@ -115,7 +115,7 @@ class virtual fcall =
         method virtual serialize : String.t
         method virtual deserialize : String.t -> unit
 
-        method check package =
+        method private check package =
             let mt = d_int8 package 4 in
             if mt != mtype then raise (Illegal_package_type mt);
             let psize = d_int32 package 0 in
@@ -221,18 +221,19 @@ class rAttach _tag =
         method mtype = mtype
     end
 
-class rError package tag message =
+class rError _tag message =
     object (self)
         inherit fcall
 
         val mutable message = message
 
         initializer
-            mtype <- 107
+            mtype <- 107;
+            tag <- _tag
 
         method deserialize package =
             self#check package;
-            message <- Some (d_str package 7)
+            message <- d_str package 7
 
         method serialize = "" (* TODO *)
         method message = message
