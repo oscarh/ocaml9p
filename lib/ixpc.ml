@@ -40,7 +40,7 @@
 
 open Fcall
 
-type t = (Unix.file_descr * int)
+type t = Unix.file_descr
 
 let msize = ref 4096
 
@@ -94,7 +94,7 @@ let receive sockfd =
         if rlen = 0 then raise Socket_error
         else String.sub buff 0 plen
             
-let fopen (fd, _) fid mode =
+let fopen fd fid mode =
     let topen = new tOpen fid mode in
     send fd topen#serialize;
     let ropen = new rOpen topen#tag 0 in
@@ -119,7 +119,7 @@ let walk fd oldfid file =
 (* Returns (fid * iounit) *)
 let walk_open fd oldfid file mode =
     let newfid = walk fd oldfid file in
-    (newfid, fopen (fd, 0) newfid mode)
+    (newfid, fopen fd newfid mode)
 
 let unpack_files data = 
     let rec unpack_files data acc =
@@ -176,14 +176,14 @@ let unpack_files data =
             List.rev (record :: acc) in
     unpack_files data []
 
-let clunk (fd, _) fid =
+let clunk fd fid =
     let tclunk = new tClunk fid in
     send fd tclunk#serialize;
     let rclunk = new rClunk tclunk#tag in
     rclunk#deserialize (receive fd)
 
 (* Low level function *)
-let read (fd, _) fid iounit offset count =
+let read fd fid iounit offset count =
     let rec read buff offset =
         let tread = new tRead fid offset count in
         send fd tread#serialize;
@@ -196,7 +196,7 @@ let read (fd, _) fid iounit offset count =
     read "" offset
 
 (* Low level function *)
-let write (fd, _) fid iounit offset count data = 
+let write fd fid iounit offset count data = 
     let rec write offset count =
         let max_write = if iounit > count then count else iounit in
         let d = String.sub data offset max_write in
@@ -210,29 +210,28 @@ let write (fd, _) fid iounit offset count data =
     write offset count;
     count
 
-let fread (fd, rootfid) file offset count =
-    let fid, iounit = walk_open fd rootfid file oREAD in
-    let data = read (fd, 0) fid iounit offset count in
-    clunk (fd, 0) fid;
+let fread fd relfid file offset count =
+    let fid, iounit = walk_open fd relfid file oREAD in
+    let data = read fd fid iounit offset count in
+    clunk fd fid;
     data
 
-let fwrite (fd, rootfid) file offset count data =
-    let fid, iounit = walk_open fd rootfid file oWRITE in
-    let count = write (fd, rootfid) fid iounit count data in
-    clunk (fd, rootfid) fid;
+let fwrite fd relfid file offset count data =
+    let fid, iounit = walk_open fd relfid file oWRITE in
+    let count = write fd fid iounit offset count data in
+    clunk fd fid;
     count
 
-(* Returns new t *)
-let attach (fd, _) user aname = 
+let attach fd user aname = 
     let tattach = new tAttach None user aname in
     send fd tattach#serialize;
     let rattach = new rAttach tattach#tag in
     rattach#deserialize (receive fd);
-    (fd, tattach#fid)
+    tattach#fid
 
 let connect address =
     let sockaddr = Unix.ADDR_UNIX address in
     let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     Unix.connect fd sockaddr;
     version fd;
-    (fd, 0)
+    fd

@@ -61,8 +61,8 @@ let print_dirs dirs =
 
 let main () =
     let conn = Ixpc.connect address in
-    let conn = Ixpc.attach conn user "/" in
-    let data = Ixpc.fread conn "/bar/status" 0 4090 in
+    let fid = Ixpc.attach conn user "/" in
+    let data = Ixpc.fread conn fid "/bar/status" 0 4090 in
     let dirs = Ixpc.unpack_files data in
     print_dirs dirs
 
