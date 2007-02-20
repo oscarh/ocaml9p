@@ -37,8 +37,10 @@
 
 open Printf
 
+type cmd = Read of string | Write of string | Ls of string
+
 let adrs_exp = Str.regexp "unix!\\(.+\\)"
-let address =
+let wmii_address =
     let adrs = Sys.getenv "WMII_ADDRESS" in
     if Str.string_match adrs_exp adrs 0 then Str.matched_group 1 adrs
     else adrs
@@ -59,11 +61,49 @@ let print_dirs dirs =
     with _ ->
         ()
 
-let main () =
+let do_read address file =
     let conn = Ixpc.connect address in
-    let fid = Ixpc.attach conn user "/" in
-    let data = Ixpc.fread conn fid "/bar/status" 0 4090 in
-    let dirs = Ixpc.unpack_files data in
-    print_dirs dirs
+    let rootfid = Ixpc.attach conn user "/" in
+    Ixpc.fread conn rootfid file 0 4090
+
+let write address file =
+    ()
+
+let read address file =
+    let data = do_read address file in
+    print_string data
+
+let ls address dir =
+    let data = do_read address dir in
+    print_dirs (Ixpc.unpack_files data)
+
+let run address cmd =
+    match cmd with
+    | Read file -> read address file
+    | Write file -> write address file
+    | Ls file -> ls address file
+
+let main () =
+    let cmd = ref None in
+    let ixp_address = ref wmii_address in
+    let usage = "usage: " ^ 
+        Sys.argv.(0) ^ " [-a <address>] read | write | ls <file>" ^
+        "\nread\t- Read from a file\n" ^
+        "write\t- Write from a file\n" ^
+        "ls\t- Read from a directory\n" ^
+        "--help\t- Print this help" in
+    let rec parse i =
+        let next = match Sys.argv.(i) with
+        | "read" -> cmd := Some (Read Sys.argv.(i + 1)); i + 2
+        | "write" -> cmd := Some (Write Sys.argv.(i + 1)); i + 2
+        | "ls" -> cmd := Some (Ls Sys.argv.(i + 1)); i + 2
+        | "-a" -> ixp_address := Sys.argv.(i + 1); i + 2
+        | "--help" -> cmd := None; Array.length Sys.argv
+        | _ -> cmd := None; Array.length Sys.argv in
+        if next < Array.length Sys.argv then parse next in
+    parse 1;
+    match !cmd with
+    | Some command -> run !ixp_address command
+    | None -> print_string usage; print_newline ()
 
 let _ = main ()
