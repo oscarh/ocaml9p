@@ -4,6 +4,7 @@ OCAMLDEP = ocamldep
 OCAMLC = ocamlc
 OCAMLOPT = ocamlopt
 OCAMLFIND = ocamlfind
+OCAMLDOC = ocamldoc
 
 # Libs to link with
 REQUIRES = unix str
@@ -30,13 +31,14 @@ NAME=ixp
 LIBOBJ = $(patsubst %.ml,%.cmo,$(LIBSRC))
 LIBXOBJ = $(patsubst %.ml,%.cmx,$(LIBSRC))
 CLOBJ = $(patsubst %.ml,%.cmx,$(CLSRC))
-LIBIF = $(patsubst %.ml,%.cmi,$(LIBSRC))
+LIBCMI = $(patsubst %.ml,%.cmi,$(LIBSRC))
+LIBMLI = $(patsubst %.ml,%.mli,$(LIBSRC))
 
 all: $(LIB) $(LIBX) $(CLIENT)
 
 .PHONY: install
 install: all
-	$(OCAMLFIND) install $(NAME) $(LIB) $(LIBIF) $(LIBX) META
+	$(OCAMLFIND) install $(NAME) $(LIB) $(LIBCMI) $(LIBX) META
 	install -d $(DESTDIR)$(PREFIX)/bin/
 	install $(CLIENT) $(DESTDIR)$(PREFIX)/bin/$(CLIENT)
 
@@ -45,10 +47,10 @@ uninstall:
 	$(OCAMLFIND) remove $(NAME)
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(CLIENT)
 
-$(LIB): $(LIBIF) $(LIBOBJ)
+$(LIB): $(LIBCMI) $(LIBOBJ)
 	$(OCAMLFIND) $(OCAMLC) -a -o $@ -package "$(REQUIRES)" -linkpkg $(LIBOBJ)
 
-$(LIBX): $(LIBIF) $(LIBXOBJ)
+$(LIBX): $(LIBCMI) $(LIBXOBJ)
 	$(OCAMLFIND) $(OCAMLOPT) -a -o $@ -package "$(REQUIRES)" $(LIBXOBJ)
 
 $(CLIENT): $(CLOBJ)
@@ -63,7 +65,10 @@ $(CLIENT): $(CLOBJ)
 %.cmx: %.ml
 	$(OCAMLFIND) $(OCAMLOPT) -c $(INCLUDES) -package "$(REQUIRES)" $<
 
+htdoc: $(LIBMLI)
+	$(OCAMLDOC) -html -d doc $^
+
 .PHONY: clean
 clean:
 	rm -f lib/*.cmo lib/*.cmx lib/*.cmi lib/*.o src/*.cmx src/*.cmi src/*.o \
-	  $(LIB) $(LIBX) $(patsubst %.cmxa,%.a,$(LIBX)) $(CLIENT)
+	  $(LIB) $(LIBX) $(patsubst %.cmxa,%.a,$(LIBX)) $(CLIENT) doc/*

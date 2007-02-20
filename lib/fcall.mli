@@ -1,58 +1,168 @@
+(******************************************************************************)
+(* OCaml-IXP                                                                  *)
+(*                                                                            *)
+(* Copyright 2007 Oscar Hellström, oscar at oscarh dot net.                   *)
+(* All rights reserved                                                        *)
+(* Redistribution and use in source and binary forms, with or without         *)
+(* modification, are permitted provided that the following conditions are     *)
+(* met:                                                                       *)
+(*                                                                            *)
+(*     * Redistributions of source code must retain the above copyright       *)
+(*       notice, this list of conditions and the following disclaimer.        *)
+(*     * Redistributions in binary form must reproduce the above copyright    *)
+(*       notice, this list of conditions and the following disclaimer in the  *)
+(*       documentation and/or other materials provided with the distribution. *)
+(*     * The names of its contributors may not be used to endorse or promote  *)
+(*       products derived from this software without specific prior written   *)
+(*       permission.                                                          *)
+(*                                                                            *)
+(*                                                                            *)
+(* THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND    *)
+(* ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE      *)
+(* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE *)
+(* ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE    *)
+(* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL *)
+(* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR *)
+(* SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER *)
+(* CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT         *)
+(* LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY  *)
+(* OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF     *)
+(* SUCH DAMAGE.                                                               *)
+(******************************************************************************)
+
+(**
+IXP Library serialization / de-serialization interface.
+{{:http://v9fs.sourceforge.net/rfc/} http://v9fs.sourceforge.net/rfc/}
+
+Object Oriented interface to the IXP packages.
+Primarily meant to be used through the Ixpc module.
+ *)
+
+
+(** Version of the protocol (currently there is only one) *)
 type version = V9P2000
+
+(** Thrown if some one wants to use an unsupported version *)
 exception Unsupported_version of string
+
+(** A package is trying to de-serialize a package which it cannot understand *)
 exception Illegal_package_type of int
+
+(** A package is not complete, i.e. it does not have the correct length *)
 exception Package_not_complete
+
+(** A package with the wrong tag was de-serialized *)
 exception Wrong_tag of int * int
 
-val s_xbit_int : int -> int -> string
+(** {2 Serialization functions} *)
+
+(** 
+FIXME some of these functions should take Int32.t or Int64.t values
+*)
+
+(** 
+[s_intx bytes value] serialize integer of value [value]. The integer will
+take up [bytes] bytes (octets) in the string returned.
+*)
+val s_intx : int -> int -> string
+
+(** Serialize a 8 bit integer. *)
 val s_int8 : int -> string
+
+(** Serialize a 16 bit integer. *)
 val s_int16 : int -> string
+
+(** Serialize a 32 bit integer. *)
 val s_int32 : int -> string
+
+(** Serialize a 64 bit integer. *)
 val s_int64 : int -> string
+
+(** Serialize a string. The string must be UTF-8 encoded. *)
 val s_str : string -> string
+
+(** {2 De-serialization functions} *)
+
+(** 
+FIXME some of these functions should return Int32.t or Int64.t values
+*)
+
+(** 
+[d_intx data bytes offset] de-serializes an integer of [bytes] bytes
+starting at [offset].
+*)
 val d_intx : string -> int -> int -> int
+
+(** [d_int8 data bytes offset] de-serializes an 8 bit integer *)
 val d_int8 : string -> int -> int
+
+(** [d_int16 data bytes offset] de-serializes a 16 bit integer *)
 val d_int16 : string -> int -> int
+
+(** [d_int32 data bytes offset] de-serializes a 32 bit integer *)
 val d_int32 : string -> int -> int
+
+(** [d_int64 data bytes offset] de-serializes a 64 bit integer *)
 val d_int64 : string -> int -> int
+
+(** [d_str data offset] de-serializes a string. *)
 val d_str : string -> int -> string
 
+(** {2 FCall classes} *)
+(**
+These classes represent the packages used to communicate with the resource.
+*)
+
+(** {3 Abstract base class} *)
+
+(** Base class for all package. *)
 class virtual fcall :
   object
-    val mutable mtype : int
-    val mutable tag : int
-    method check : string -> unit
-    method virtual deserialize : String.t -> unit
+    val mutable mtype : int (** The message type. *)
+
+    val mutable tag : int (** Message tag, unique for all messages within a
+                              session. *)
+
+    (** Reads a package and sets the fields accordingly. *)
+    method virtual deserialize : string -> unit
+
+    (** Serializes the message, returns a sequence of bytes. *)
+    method virtual serialize : string
+
+    (** Returns the massage type. *)
     method mtype : int
-    method virtual serialize : String.t
+
+    (** Returns the tag of the message. *)
     method tag : int
   end
-val concat : string list -> string
+
+(** {3 Concrete classes} *)
+
 class tVersion :
   int ->
   object
     val mutable mtype : int
     val mutable tag : int
     val version : version
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class rVersion :
   int ->
   object
     val mutable msize : int
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method msize : int
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class tAttach :
   int option ->
   string ->
@@ -61,62 +171,61 @@ class tAttach :
     val fid : int
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method fid : int
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class rAttach :
   int ->
   object
     val mutable mtype : int
     val quit : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class rError :
-  'a ->
-  'b ->
-  string option ->
+  int ->
+  string ->
   object
-    val mutable message : string option
+    val mutable message : string
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
-    method message : string option
+    method deserialize : string -> unit
+    method message : string
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class tflush :
   int ->
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class rflush :
   int ->
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class tWalk :
   int ->
   bool ->
@@ -125,13 +234,13 @@ class tWalk :
     val mutable mtype : int
     val newfid : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
     method newfid : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class rWalk :
   int ->
   int ->
@@ -139,10 +248,9 @@ class rWalk :
     val mutable mtype : int
     val mutable nwquid : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -152,12 +260,12 @@ class tOpen :
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class rOpen :
   int ->
   int ->
@@ -165,13 +273,13 @@ class rOpen :
     val mutable iounit : int
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method iounit : int
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class tCreate :
   int ->
   string ->
@@ -180,12 +288,12 @@ class tCreate :
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class rCreate :
   int ->
   int ->
@@ -193,11 +301,10 @@ class rCreate :
     val mutable iounit : int
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method iounit : int
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -208,10 +315,9 @@ class tRead :
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -222,12 +328,11 @@ class rRead :
     val mutable data : string
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
     method count : int
     method data : string
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -239,10 +344,9 @@ class tWrite :
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -253,22 +357,21 @@ class rWrite :
     val mutable count : int
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
     method count : int
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
+
 class tClunk :
   int ->
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -277,10 +380,9 @@ class rClunk :
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -289,10 +391,9 @@ class tRemove :
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : string -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
 
@@ -301,9 +402,8 @@ class rRemove :
   object
     val mutable mtype : int
     val mutable tag : int
-    method check : String.t -> unit
-    method deserialize : String.t -> unit
+    method deserialize : string -> unit
     method mtype : int
-    method serialize : String.t
+    method serialize : string
     method tag : int
   end
