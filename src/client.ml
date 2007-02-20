@@ -67,7 +67,14 @@ let do_read address file =
     Ixpc.fread conn rootfid file 0 4090
 
 let write address file =
-    ()
+    let buff = String.create 4096 in
+    let len = (input stdin buff 0 4096) - 1 in
+    let data = String.sub buff 0 len in
+    let conn = Ixpc.connect address in
+    let rootfid = Ixpc.attach conn user "/" in
+    let count = Ixpc.fwrite conn rootfid file 0 len data in
+    if count != len then
+        printf "Warning: Could only write %d bytes" count
 
 let read address file =
     let data = do_read address file in
