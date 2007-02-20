@@ -45,18 +45,19 @@ uninstall:
 	$(OCAMLFIND) remove $(NAME)
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(CLIENT)
 
-$(LIB): $(LIBOBJ)
-	$(OCAMLFIND) $(OCAMLC) -a -o $@ -package "$(REQUIRES)" -linkpkg \
-	  $^
+$(LIB): $(LIBIF) $(LIBOBJ)
+	$(OCAMLFIND) $(OCAMLC) -a -o $@ -package "$(REQUIRES)" -linkpkg $(LIBOBJ)
 
-$(LIBX): $(LIBXOBJ)
-	$(OCAMLFIND) $(OCAMLOPT) -a -o $@ -package "$(REQUIRES)" \
-	   $^
+$(LIBX): $(LIBIF) $(LIBXOBJ)
+	$(OCAMLFIND) $(OCAMLOPT) -a -o $@ -package "$(REQUIRES)" $(LIBXOBJ)
 
 $(CLIENT): $(CLOBJ)
 	$(OCAMLFIND) $(OCAMLOPT) -package "$(REQUIRES)" -linkpkg -o $@ $(LIBX) $^
 
 %.cmo: %.ml
+	$(OCAMLFIND) $(OCAMLC) -c $(INCLUDES) -package "$(REQUIRES)" $<
+
+%.cmi: %.mli
 	$(OCAMLFIND) $(OCAMLC) -c $(INCLUDES) -package "$(REQUIRES)" $<
 
 %.cmx: %.ml
