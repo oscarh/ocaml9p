@@ -47,7 +47,7 @@ let msize = ref 4096
 exception Socket_error
 exception IXPError
 
-type dir = {
+type stat = {
     ktype : int;
     kdev : int;
     q_type : int;
