@@ -37,12 +37,12 @@ all: $(LIB) $(LIBX) $(CLIENT)
 .PHONY: install
 install: all
 	$(OCAMLFIND) install $(NAME) $(LIB) $(LIBIF) $(LIBX) META
-	install $(CLIENT) $(PREFIX)/bin
+	install $(CLIENT) $(DESTDIR)$(PREFIX)/bin
 
 .PHONY: uninstall
 uninstall:
 	$(OCAMLFIND) remove $(NAME)
-	rm -f $(PREFIX)/bin/$(CLIENT)
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(CLIENT)
 
 $(LIB): $(LIBOBJ)
 	$(OCAMLFIND) $(OCAMLC) -a -o $@ -package "$(REQUIRES)" -linkpkg \
