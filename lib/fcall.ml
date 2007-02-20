@@ -111,6 +111,7 @@ class virtual fcall =
         val mutable tag = 0
 
         method mtype = mtype
+        method tag = tag
         method virtual serialize : String.t
         method virtual deserialize : String.t -> unit
 
@@ -199,7 +200,6 @@ class tAttach afid uname aname =
         method deserialize package = () (* TODO *)
 
         method mtype = mtype
-        method tag = tag
         method fid = fid
     end
 
@@ -237,8 +237,38 @@ class rError package tag message =
         method message = message
     end
 
-let tflush  = String.make 1 (char_of_int 108)
-let rflush  = String.make 1 (char_of_int 109)
+class tflush oldtag =
+    object
+        inherit fcall
+
+        initializer
+            mtype <- 108;
+            tag <- new_tag ()
+
+        method serialize =
+            let data = concat [
+                s_int8 mtype;
+                s_int16 tag;
+                s_int16 oldtag
+            ] in
+            s_int32 ((String.length data) + 4) ^ data
+
+        method deserialize pagkage = () (* TODO *)
+    end
+
+class rflush _tag =
+    object (self)
+        inherit fcall
+
+        initializer
+            mtype <- 109;
+            tag <- _tag
+
+        method serialize = "" (* TODO *)
+
+        method deserialize package =
+            self#check package
+    end
 
 class tWalk fid use_old wname = 
     object
@@ -268,7 +298,6 @@ class tWalk fid use_old wname =
         method deserialize package = () (* TODO *)
 
         method mtype = mtype
-        method tag = tag
         method newfid = newfid
     end
 
@@ -307,8 +336,6 @@ class tOpen fid mode =
             (s_int32 ((String.length data) + 4)) ^ data
 
         method deserialize package = () (* TODO *)
-
-        method tag = tag
     end
 
 class rOpen _tag _iounit =
@@ -350,8 +377,6 @@ class tRead fid offset count =
 
         method deserialize package = (* TODO *)
             ()
-
-        method tag = tag
     end
 
 class rRead _tag data =
@@ -396,8 +421,6 @@ class tWrite fid offset count data =
             s_int32 ((String.length package) + 4) ^ package
 
         method deserialize package = () (* TODO *)
-
-        method tag = tag
     end
 
 class rWrite _tag count =
@@ -436,8 +459,6 @@ class tClunk fid =
             s_int32 ((String.length data) + 4) ^ data
 
         method deserialize package = () (* TODO *)
-
-        method tag = tag
     end
 
 class rClunk _tag =
