@@ -107,7 +107,7 @@ let s_int32 v =
     let bytes = 4 in
     let str = String.create bytes in
     for i = 0 to (bytes - 1) do
-        let curr_int = Int32.to_int (Int32.shift_right v (i * 8)) in
+        let curr_int = Int32.to_int (Int32.shift_right_logical v (i * 8)) in
         str.[i] <- char_of_int (curr_int land 255)
     done;
     str
@@ -116,7 +116,7 @@ let s_int64 v =
     let bytes = 8 in
     let str = String.create bytes in
     for i = 0 to (bytes - 1) do
-        let curr_int = Int64.to_int (Int64.shift_right v (i * 8)) in
+        let curr_int = Int64.to_int (Int64.shift_right_logical v (i * 8)) in
         str.[i] <- char_of_int (curr_int land 255)
     done;
     str
