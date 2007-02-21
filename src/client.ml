@@ -53,8 +53,11 @@ let print_file dir =
     let group = dir.Fcall.gid in
     let name = dir.Fcall.name in
     let size = Int64.to_int (dir.Fcall.length) in
-    let _ = dir.Fcall.mode in
-    printf "%s\t%s\t%d\t%s\n" owner group size name
+    let dirmarker = if Int32.logand dir.Fcall.mode Ixpc.mDIR = Ixpc.mDIR then
+        "/" 
+    else 
+        "" in
+    printf "%s\t%s\t%d\t%s%s\n" owner group size name dirmarker
 
 let print_dirs dirs =
     try
@@ -115,12 +118,16 @@ let remove name =
     Ixpc.clunk conn fid
 
 let run address cmd =
-    match cmd with
-    | Read file -> read address file
-    | Create (name, dir) -> create name dir
-    | Remove name -> remove name
-    | Write file -> write address file
-    | Ls dir -> ls address dir
+    try 
+        match cmd with
+        | Read file -> read address file
+        | Create (name, dir) -> create name dir
+        | Remove name -> remove name
+        | Write file -> write address file
+        | Ls dir -> ls address dir
+    with Ixpc.IXPError str ->
+        print_string ("Error: " ^ str);
+        print_newline ()
 
 let main () =
     let cmd = ref None in

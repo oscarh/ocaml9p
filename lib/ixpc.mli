@@ -59,6 +59,12 @@ val oREXEC : int
 val oRCLOSE : int
 val oAPPEND : int
 
+(**
+Represents the mode of a directory
+*)
+val mDIR : Int32.t
+
+
 (** {2 IXPC client interface functions} *)
 
 (**

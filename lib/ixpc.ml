@@ -59,6 +59,8 @@ let oREXEC = 0x20
 let oRCLOSE = 0x40
 let oAPPEND = 0x80
 
+let mDIR  = Int32.shift_left Int32.one 31
+
 let delimiter_exp = Str.regexp "/"
 
 let deserialize obj package =
