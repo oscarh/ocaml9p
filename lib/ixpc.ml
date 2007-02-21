@@ -135,61 +135,6 @@ let walk_open fd oldfid reuse file mode =
     let newfid = walk fd oldfid reuse file in
     (newfid, fopen fd newfid mode)
 
-let unpack_files data = 
-    let rec unpack_files data acc =
-        let offset = ref 0 in
-        (* De-serialize *)
-        let _ = Fcall.d_int16 data !offset in
-        offset += 2;
-        let ktype = Fcall.d_int16 data !offset in
-        offset += 2;
-        let kdev = Fcall.d_int32 data !offset in
-        offset += 4;
-        let q_type = Fcall.d_int8 data !offset in
-        offset += 1;
-        let q_vers = Fcall.d_int32 data !offset in
-        offset += 4;
-        let q_path = Fcall.d_int64 data !offset in
-        offset += 8;
-        let mode = Fcall.d_int32 data !offset in
-        offset += 4;
-        let atime = Fcall.d_int32 data !offset in
-        offset += 4;
-        let mtime = Fcall.d_int32 data !offset in
-        offset += 4;
-        let length = Fcall.d_int64 data !offset in
-        offset += 8;
-        let name = Fcall.d_str data !offset in
-        offset += ((String.length name) + 2);
-        let uid = Fcall.d_str data !offset in
-        offset += ((String.length uid) + 2);
-        let gid = Fcall.d_str data !offset in
-        offset += ((String.length gid) + 2);
-        let muid = Fcall.d_str data !offset in
-        offset += ((String.length muid) + 2);
-        let record = {
-            ktype = ktype;
-            kdev = kdev;
-            q_type = q_type;
-            q_vers = q_vers;
-            q_path = q_path;
-            mode = mode;
-            atime = atime;
-            mtime = mtime;
-            length = length;
-            name = name;
-            uid  = uid;
-            gid = gid;
-            muid = muid;
-        } in
-        if !offset < (String.length data) then
-            (let rest_len = (String.length data) - !offset in
-            let rest = String.sub data !offset rest_len in
-            unpack_files rest (record :: acc))
-        else
-            List.rev (record :: acc) in
-    unpack_files data []
-
 let clunk fd fid =
     let tclunk = new tClunk fid in
     send fd tclunk#serialize;
@@ -254,3 +199,59 @@ let connect address =
     Unix.connect fd sockaddr;
     version fd;
     fd
+
+let unpack_files data = 
+    let rec unpack_files data acc =
+        let offset = ref 0 in
+        (* De-serialize *)
+        let _ = Fcall.d_int16 data !offset in
+        offset += 2;
+        let ktype = Fcall.d_int16 data !offset in
+        offset += 2;
+        let kdev = Fcall.d_int32 data !offset in
+        offset += 4;
+        let q_type = Fcall.d_int8 data !offset in
+        offset += 1;
+        let q_vers = Fcall.d_int32 data !offset in
+        offset += 4;
+        let q_path = Fcall.d_int64 data !offset in
+        offset += 8;
+        let mode = Fcall.d_int32 data !offset in
+        offset += 4;
+        let atime = Fcall.d_int32 data !offset in
+        offset += 4;
+        let mtime = Fcall.d_int32 data !offset in
+        offset += 4;
+        let length = Fcall.d_int64 data !offset in
+        offset += 8;
+        let name = Fcall.d_str data !offset in
+        offset += ((String.length name) + 2);
+        let uid = Fcall.d_str data !offset in
+        offset += ((String.length uid) + 2);
+        let gid = Fcall.d_str data !offset in
+        offset += ((String.length gid) + 2);
+        let muid = Fcall.d_str data !offset in
+        offset += ((String.length muid) + 2);
+        let record = {
+            ktype = ktype;
+            kdev = kdev;
+            q_type = q_type;
+            q_vers = q_vers;
+            q_path = q_path;
+            mode = mode;
+            atime = atime;
+            mtime = mtime;
+            length = length;
+            name = name;
+            uid  = uid;
+            gid = gid;
+            muid = muid;
+        } in
+        if !offset < (String.length data) then
+            (let rest_len = (String.length data) - !offset in
+            let rest = String.sub data !offset rest_len in
+            unpack_files rest (record :: acc))
+        else
+            List.rev (record :: acc) in
+    unpack_files data []
+
