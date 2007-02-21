@@ -105,6 +105,12 @@ the file it did represent.
 *)
 val clunk : t -> int32 -> unit
 
+
+(**
+[stat conn fid] returns [stat] results for the file/dir represented by [fid].
+*)
+val stat : t -> int32 -> Fcall.stat
+
 (**
 [read conn fid iounit offset count] reads [count] bytes from [offset] in the
 file represented by [fid].

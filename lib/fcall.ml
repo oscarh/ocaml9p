@@ -690,9 +690,12 @@ class rStat _tag stat =
 
         method deserialize package =
             self#check package;
-            stat <- d_stat package 7
+            stat <- Some (d_stat package 7)
 
-        method stat = stat
+        method stat = 
+            match stat with
+            | None -> raise (Failure "Stat not deserialized / initialized")
+            | Some stat -> stat 
     end
 
 (* TODO implement these: *)

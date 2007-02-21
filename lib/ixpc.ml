@@ -176,6 +176,13 @@ let create fd fid name perm mode =
     deserialize rcreate (receive fd);
     rcreate#iounit
 
+let stat fd fid =
+    let tstat = new tStat fid in
+    send fd tstat#serialize;
+    let rstat = new rStat tstat#tag None in
+    deserialize rstat (receive fd);
+    rstat#stat
+
 let attach fd user aname = 
     let tattach = new tAttach None user aname in
     send fd tattach#serialize;

@@ -437,7 +437,7 @@ class tStat :
 
 class rStat :
   int ->
-  stat ->
+  stat option ->
   object
     val mutable mtype : int
     val mutable tag : int
