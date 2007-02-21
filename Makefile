@@ -38,7 +38,7 @@ all: $(LIB) $(LIBX) $(CLIENT)
 
 .PHONY: install
 install: all
-	$(OCAMLFIND) install $(NAME) $(LIB) $(LIBCMI) $(LIBX) META
+	$(OCAMLFIND) install $(NAME) $(LIB) $(LIBCMI) $(NAME).a $(LIBX) META
 	install -d $(DESTDIR)$(PREFIX)/bin/
 	install $(CLIENT) $(DESTDIR)$(PREFIX)/bin/$(CLIENT)
 
