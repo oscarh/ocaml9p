@@ -38,9 +38,27 @@ Object Oriented interface to the IXP packages.
 Primarily meant to be used through the Ixpc module.
  *)
 
-
 (** Version of the protocol (currently there is only one) *)
 type version = V9P2000
+
+(** {2 Records} *)
+
+(** Describes a stat result *)
+type stat = {
+    ktype : int;
+    kdev : int32;
+    q_type : int;
+    q_vers : int32;
+    q_path : int64;
+    mode : int32;
+    atime : int32;
+    mtime : int32;
+    length : int64;
+    name : string;
+    uid : string;
+    gid : string;
+    muid : string;
+}
 
 (** Thrown if some one wants to use an unsupported version *)
 exception Unsupported_version of string
@@ -73,10 +91,10 @@ val s_int8 : int -> string
 val s_int16 : int -> string
 
 (** Serialize a 32 bit integer. *)
-val s_int32 : int -> string
+val s_int32 : int32 -> string
 
 (** Serialize a 64 bit integer. *)
-val s_int64 : int -> string
+val s_int64 : int64 -> string
 
 (** Serialize a string. The string must be UTF-8 encoded. *)
 val s_str : string -> string
@@ -100,13 +118,15 @@ val d_int8 : string -> int -> int
 val d_int16 : string -> int -> int
 
 (** [d_int32 data bytes offset] de-serializes a 32 bit integer *)
-val d_int32 : string -> int -> int
+val d_int32 : string -> int -> int32
 
 (** [d_int64 data bytes offset] de-serializes a 64 bit integer *)
-val d_int64 : string -> int -> int
+val d_int64 : string -> int -> int64
 
 (** [d_str data offset] de-serializes a string. *)
 val d_str : string -> int -> string
+
+val d_stat : string -> int -> stat
 
 (** {2 FCall classes} *)
 (**
@@ -139,7 +159,7 @@ class virtual fcall :
 (** {3 Concrete classes} *)
 
 class tVersion :
-  int ->
+  Int32.t ->
   object
     val mutable mtype : int
     val mutable tag : int
@@ -151,28 +171,28 @@ class tVersion :
   end
 
 class rVersion :
-  int ->
+  int32 ->
   object
-    val mutable msize : int
+    val mutable msize : int32
     val mutable mtype : int
     val mutable tag : int
     method deserialize : string -> unit
-    method msize : int
+    method msize : int32
     method mtype : int
     method serialize : string
     method tag : int
   end
 
 class tAttach :
-  int option ->
+  int32 option ->
   string ->
   string ->
   object
-    val fid : int
+    val fid : int32
     val mutable mtype : int
     val mutable tag : int
     method deserialize : string -> unit
-    method fid : int
+    method fid : int32
     method mtype : int
     method serialize : string
     method tag : int
@@ -227,16 +247,16 @@ class rflush :
   end
 
 class tWalk :
-  int ->
+  int32 ->
   bool ->
   string list ->
   object
     val mutable mtype : int
-    val newfid : int
+    val newfid : int32
     val mutable tag : int
     method deserialize : string -> unit
     method mtype : int
-    method newfid : int
+    method newfid : int32
     method serialize : string
     method tag : int
   end
@@ -255,7 +275,7 @@ class rWalk :
   end
 
 class tOpen :
-  int ->
+  int32 ->
   int ->
   object
     val mutable mtype : int
@@ -268,22 +288,22 @@ class tOpen :
 
 class rOpen :
   int ->
-  int ->
+  int32 ->
   object
-    val mutable iounit : int
+    val mutable iounit : int32
     val mutable mtype : int
     val mutable tag : int
     method deserialize : string -> unit
-    method iounit : int
+    method iounit : int32
     method mtype : int
     method serialize : string
     method tag : int
   end
 
 class tCreate :
-  int ->
+  int32 ->
   string ->
-  int ->
+  int32 ->
   int ->
   object
     val mutable mtype : int
@@ -296,22 +316,22 @@ class tCreate :
 
 class rCreate :
   int ->
-  int ->
+  int32 ->
   object
-    val mutable iounit : int
+    val mutable iounit : int32
     val mutable mtype : int
     val mutable tag : int
     method deserialize : string -> unit
-    method iounit : int
+    method iounit : int32
     method mtype : int
     method serialize : string
     method tag : int
   end
 
 class tRead :
-  int ->
-  int ->
-  int ->
+  int32 ->
+  int64 ->
+  int32 ->
   object
     val mutable mtype : int
     val mutable tag : int
@@ -337,9 +357,9 @@ class rRead :
   end
 
 class tWrite :
-  int ->
-  int ->
-  int ->
+  int32 ->
+  int64 ->
+  int32 ->
   string ->
   object
     val mutable mtype : int
@@ -352,12 +372,12 @@ class tWrite :
 
 class rWrite :
   int ->
-  int ->
+  int32 ->
   object
-    val mutable count : int
+    val mutable count : int32
     val mutable mtype : int
     val mutable tag : int
-    method count : int
+    method count : int32
     method deserialize : string -> unit
     method mtype : int
     method serialize : string
@@ -365,7 +385,7 @@ class rWrite :
   end
 
 class tClunk :
-  int ->
+  int32 ->
   object
     val mutable mtype : int
     val mutable tag : int
@@ -387,7 +407,7 @@ class rClunk :
   end
 
 class tRemove :
-  int ->
+  int32 ->
   object
     val mutable mtype : int
     val mutable tag : int
@@ -406,4 +426,28 @@ class rRemove :
     method mtype : int
     method serialize : string
     method tag : int
+  end
+
+class tStat :
+  int32 ->
+  object
+    val mutable mtype : int
+    val mutable tag : int
+    method deserialize : string -> unit
+    method mtype : int
+    method serialize : string
+    method tag : int
+  end
+
+class rStat :
+  int ->
+  stat ->
+  object
+    val mutable mtype : int
+    val mutable tag : int
+    method deserialize : string -> unit
+    method mtype : int
+    method serialize : string
+    method tag : int
+    method stat : stat
   end

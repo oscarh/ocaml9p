@@ -49,10 +49,11 @@ let wmii_address =
 let user = Sys.getenv "USER"
 
 let print_file dir =
-    let owner = dir.Ixpc.uid in
-    let group = dir.Ixpc.gid in
-    let name = dir.Ixpc.name in
-    let size = dir.Ixpc.length in
+    let owner = dir.Fcall.uid in
+    let group = dir.Fcall.gid in
+    let name = dir.Fcall.name in
+    let size = Int64.to_int (dir.Fcall.length) in
+    let _ = dir.Fcall.mode in
     printf "%s\t%s\t%d\t%s\n" owner group size name
 
 let print_dirs dirs =
@@ -75,32 +76,35 @@ let write address file =
     let data = String.sub buff 0 len in
     let conn = Ixpc.connect address in
     let rootfid = Ixpc.attach conn user "/" in
-    let count = Ixpc.fwrite conn rootfid file 0 len data in
-    if count != len then
-        printf "Warning: Could only write %d bytes" count
+    let i32len = Int32.of_int len in
+    let count = Ixpc.fwrite conn rootfid file Int64.zero i32len data in
+    if count != i32len then
+        printf "Warning: Could only write %d bytes" (Int32.to_int count)
 
 let read address file =
     let conn, fid, iounit = open_fid address file in
     let rec read offset =
-        let data = Ixpc.read conn fid iounit offset 4096 in
+        let max_len = Int32.of_int 4096 in
+        let data = Ixpc.read conn fid iounit offset max_len in
         print_string data;
         flush stdout;
         let len = String.length data in
         if len > 0 then
-            read (offset + len) in
-    read 0;
+            read (Int64.add offset (Int64.of_int len)) in
+    read Int64.zero;
     Ixpc.clunk conn fid
 
 let ls address dir =
     let conn, fid, iounit = open_fid address dir in
-    let data = Ixpc.read conn fid iounit 0 4096 in
+    let max_len = Int32.of_int 4096 in
+    let data = Ixpc.read conn fid iounit Int64.zero max_len in
     print_dirs (Ixpc.unpack_files data);
     Ixpc.clunk conn fid
 
 let create name dir =
     let conn = Ixpc.connect wmii_address in
     let fid = Ixpc.attach conn user dir in
-    let newfid = Ixpc.create conn fid name 666 Ixpc.oWRITE in
+    let newfid = Ixpc.create conn fid name (Int32.of_int 666) Ixpc.oWRITE in
     Ixpc.clunk conn newfid;
     Ixpc.clunk conn fid
 
@@ -108,8 +112,7 @@ let remove name =
     let conn = Ixpc.connect wmii_address in
     let fid = Ixpc.attach conn user "/" in
     let fid = Ixpc.walk conn fid true name in
-    Ixpc.clunk conn fid;
-    printf "remove %s\n" name
+    Ixpc.clunk conn fid
 
 let run address cmd =
     match cmd with

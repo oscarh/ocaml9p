@@ -47,25 +47,6 @@ exception Socket_error of string
 (** Remote IXPError *)
 exception IXPError of string
 
-(** {2 Records} *)
-
-(** Describes a stat result *)
-type stat = {
-  ktype : int;
-  kdev : int;
-  q_type : int;
-  q_vers : int;
-  q_path : int;
-  mode : int;
-  atime : int;
-  mtime : int;
-  length : int;
-  name : string;
-  uid : string;
-  gid : string;
-  muid : string;
-}
-
 (** {2 File Modes} *)
 
 val oREAD : int
@@ -91,7 +72,7 @@ val connect : string -> t
 returns the [fid] for that file.
 It is common to attach to [/]. Returns a fid for the attached address.
 *)
-val attach : t -> string -> string -> int
+val attach : t -> string -> string -> int32
 
 (**
 [walk conn oldfid reuse file] walks from [oldfid] to the [file]. [file] must be
@@ -99,56 +80,56 @@ a file-name relative to the file represented by [oldfid]. If [reuse] is true,
 the old [fid] will represent the new file. Returns the fid, [oldfid] if [reuse]
 was true and a new fid if [reuse] was false.
 *)
-val walk : t -> int -> bool -> string -> int
+val walk : t -> int32 -> bool -> string -> int32
 
 (**
 [walk_open conn oldfid reuse file mode] does the same as [walk] but also opens
 the file. [mode] is one of the File Modes. Returns [(fid, iounit)].
 *)
-val walk_open : t -> int -> bool -> string -> int -> int * int
+val walk_open : t -> int32 -> bool -> string -> int -> int32 * int32
 
 (**
 [fopen conn fid mode] [mode] is one of the File Modes. Returns an [iounit].
 *)
-val fopen : t -> int -> int -> int
+val fopen : t -> int32 -> int -> int32
 
 (**
 [clunk conn fid] forgets about the [fid]. The [fid] may not be used to access
 the file it did represent.
 *)
-val clunk : t -> int -> unit
+val clunk : t -> int32 -> unit
 
 (**
 [read conn fid iounit offset count] reads [count] bytes from [offset] in the
 file represented by [fid].
 *)
-val read : t -> int -> int -> int -> int -> string
+val read : t -> int32 -> int32 -> int64 -> int32 -> string
 
 (**
 [write conn fid iounit offset count data] writes [count] bytes of [data] at
 [offset] to the file represented by [fid]. Returns the amount of bytes actually
 written.
 *)
-val write : t -> int -> int -> int -> int -> string -> int
+val write : t -> int32 -> int32 -> int64 -> int32 -> string -> int32
 
 (**
 [fwrite conn fid name offset count data] writes [count] bytes of [data] at
 [offset] to the file named [name]. The name is relative to [fid]. Returns the
 amount of bytes actually written.
 *)
-val fwrite : t -> int -> string -> int -> int -> string -> int
+val fwrite : t -> int32 -> string -> int64 -> int32 -> string -> int32
 
 (**
 [create conn fid name perm mode] creates a file [name] in the directory
 represented by [fid]. The file will have permissions according to [perm] and
 will be opened according to [mode]. Returns an [iounit].
 *)
-val create : t -> int -> string -> int -> int -> int
+val create : t -> int32 -> string -> int32 -> int -> int32
 
 (**
 [remove conn fid] removes the file represented by fid.
 *)
-val remove : t -> int -> unit
+val remove : t -> int32 -> unit
 
 (** {2 Misc helper functions} *)
 
@@ -156,4 +137,4 @@ val remove : t -> int -> unit
 [unpack_files data] takes data from a directory read and transforms it to a list
 of stat structures.
 *)
-val unpack_files : string -> stat list
+val unpack_files : string -> Fcall.stat list

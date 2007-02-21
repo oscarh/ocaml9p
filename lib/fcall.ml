@@ -40,6 +40,22 @@
 
 type version = V9P2000
 
+type stat = {
+    ktype : int;
+    kdev : Int32.t;
+    q_type : int;
+    q_vers : Int32.t;
+    q_path : Int64.t;
+    mode : Int32.t;
+    atime : Int32.t;
+    mtime : Int32.t;
+    length : Int64.t;
+    name : string;
+    uid : string;
+    gid : string;
+    muid : string;
+}
+
 exception Unsupported_version of string
 exception Illegal_package_type of int
 exception Package_not_complete
@@ -59,9 +75,9 @@ let nofid = String.make 4 (char_of_int 255)
 let _fids = ref []
 let new_fid () =
     let rec check fid = 
-        if List.mem fid !_fids then check (fid + 1)
+        if List.mem fid !_fids then check (Int32.add fid Int32.one)
         else (_fids := fid :: !_fids; fid) in
-    check 0
+    check Int32.zero
 let reuse_fid fid =
     let rec remove l f prev = 
         match l with
@@ -73,6 +89,9 @@ let reuse_fid fid =
         | [] -> List.rev prev in
     _fids := remove !_fids fid []
 
+let (+=) ref inc =
+    ref := !ref + inc
+
 (* Serialize values *)
 let s_intx bytes v =
     let str = String.create bytes in
@@ -83,8 +102,25 @@ let s_intx bytes v =
 
 let s_int8 v = String.make 1 (char_of_int v)
 let s_int16 v = s_intx 2 v
-let s_int32 v = s_intx 4 v
-let s_int64 v = s_intx 8 v
+
+let s_int32 v =
+    let bytes = 4 in
+    let str = String.create bytes in
+    for i = 0 to (bytes - 1) do
+        let curr_int = Int32.to_int (Int32.shift_right v (i * 8)) in
+        str.[i] <- char_of_int (curr_int land 255)
+    done;
+    str
+
+let s_int64 v =
+    let bytes = 8 in
+    let str = String.create bytes in
+    for i = 0 to (bytes - 1) do
+        let curr_int = Int64.to_int (Int64.shift_right v (i * 8)) in
+        str.[i] <- char_of_int (curr_int land 255)
+    done;
+    str
+
 let s_str s = (s_int16 (String.length s)) ^ s
 
 (* De-serialize unsigned int values. *)
@@ -97,12 +133,72 @@ let d_intx str bytes offset =
 
 let d_int8 str offset = int_of_char str.[0 + offset]
 let d_int16 str offset = d_intx str 2 offset
-let d_int32 str offset = d_intx str 4 offset
-let d_int64 str offset = d_intx str 8 offset
+let d_int32 str offset = 
+    let v = ref Int32.zero in
+    for i = 0 to 3 do
+        let curr_val = Int32.of_int (int_of_char str.[offset + i]) in
+        v := (Int32.add !v (Int32.shift_left curr_val (i * 8)))
+    done;
+    !v
+
+let d_int64 str offset = 
+    let v = ref Int64.zero in
+    for i = 0 to 7 do
+        let curr_val = Int64.of_int (int_of_char str.[offset + i]) in
+        v := (Int64.add !v (Int64.shift_left curr_val (i * 8)))
+    done;
+    !v
+
 let d_str str offset =
     let len = d_int16 str offset in
     if len = 0 then ""
     else String.sub str (offset + 2) len
+
+let d_stat data offset = 
+    let offset = ref offset in
+    let _ = d_int16 data !offset in
+    offset += 2;
+    let ktype = d_int16 data !offset in
+    offset += 2;
+    let kdev = d_int32 data !offset in
+    offset += 4;
+    let q_type = d_int8 data !offset in
+    offset += 1;
+    let q_vers = d_int32 data !offset in
+    offset += 4;
+    let q_path = d_int64 data !offset in
+    offset += 8;
+    let mode = d_int32 data !offset in
+    offset += 4;
+    let atime = d_int32 data !offset in
+    offset += 4;
+    let mtime = d_int32 data !offset in
+    offset += 4;
+    let length = d_int64 data !offset in
+    offset += 8;
+    let name = d_str data !offset in
+    offset += ((String.length name) + 2);
+    let uid = d_str data !offset in
+    offset += ((String.length uid) + 2);
+    let gid = d_str data !offset in
+    offset += ((String.length gid) + 2);
+    let muid = d_str data !offset in
+    offset += ((String.length muid) + 2);
+    {
+        ktype = ktype;
+        kdev = kdev;
+        q_type = q_type;
+        q_vers = q_vers;
+        q_path = q_path;
+        mode = mode;
+        atime = atime;
+        mtime = mtime;
+        length = length;
+        name = name;
+        uid  = uid;
+        gid = gid;
+        muid = muid;
+    } 
 
 (* Base class for P9 request transmissions and responses. *)
 class virtual fcall =
@@ -119,7 +215,8 @@ class virtual fcall =
             let mt = d_int8 package 4 in
             if mt != mtype then raise (Illegal_package_type mt);
             let psize = d_int32 package 0 in
-            if (String.length package) < psize then raise Package_not_complete;
+            if Int32.of_int (String.length package) < psize then 
+                raise Package_not_complete;
             let rtag = d_int16 package 5 in
             if tag != rtag then raise (Wrong_tag (tag, rtag));
     end
@@ -145,7 +242,8 @@ class tVersion msize =
                 s_int32 msize;
                 s_str vrsn_str;
             ] in
-            s_int32 ((String.length data) + 4) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len  ^ data
 
         method deserialize package = () (* TODO *)
     end
@@ -195,7 +293,8 @@ class tAttach afid uname aname =
                 s_str uname;
                 s_str aname;
             ] in
-            s_int32 ((String.length data) + 4) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
 
         method deserialize package = () (* TODO *)
 
@@ -253,7 +352,8 @@ class tflush oldtag =
                 s_int16 tag;
                 s_int16 oldtag
             ] in
-            s_int32 ((String.length data) + 4) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
 
         method deserialize pagkage = () (* TODO *)
     end
@@ -295,7 +395,8 @@ class tWalk fid use_old wname =
                 nwname;
                 wname;
             ] in
-            s_int32 ((String.length data) + 4) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
                 
         method deserialize package = () (* TODO *)
 
@@ -335,7 +436,8 @@ class tOpen fid mode =
                 s_int32 fid;
                 s_int8 mode;
             ] in
-            (s_int32 ((String.length data) + 4)) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
 
         method deserialize package = () (* TODO *)
     end
@@ -376,7 +478,8 @@ class tCreate fid name perm mode =
                 s_int32 perm;
                 s_int8 mode;
             ] in
-            s_int32 ((String.length data) + 4) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
 
         method deserialize package = () (* TODO *)
     end
@@ -416,7 +519,8 @@ class tRead fid offset count =
                 s_int64 offset;
                 s_int32 count;
             ] in
-            (s_int32 ((String.length data) + 4)) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
 
         method deserialize package = (* TODO *)
             ()
@@ -438,7 +542,7 @@ class rRead _tag data =
         method deserialize package =
             self#check package;
             let count = d_int32 package 7 in
-            data <- (String.sub package 11 count)
+            data <- (String.sub package 11 (Int32.to_int count))
 
         method data = data
         method count = String.length data
@@ -461,7 +565,8 @@ class tWrite fid offset count data =
                 s_int32 count;
                 data;
             ] in
-            s_int32 ((String.length package) + 4) ^ package
+            let len = Int32.of_int ((String.length package) + 4) in
+            s_int32 len ^ package
 
         method deserialize package = () (* TODO *)
     end
@@ -499,7 +604,8 @@ class tClunk fid =
                 s_int16 tag;
                 s_int32 fid;
             ] in
-            s_int32 ((String.length data) + 4) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
 
         method deserialize package = () (* TODO *)
     end
@@ -531,7 +637,8 @@ class tRemove fid =
                 s_int16 tag;
                 s_int32 fid;
             ] in
-            s_int32 ((String.length data) + 4) ^ data
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
 
         method deserialize package = () (* TODO *)
     end
@@ -550,10 +657,46 @@ class rRemove _tag =
             self#check package
     end
 
+class tStat fid =
+    object
+        inherit fcall
+        
+        initializer
+            mtype <- 124;
+            tag <- new_tag ()
+
+        method serialize =
+            let data = concat [
+                s_int8 mtype;
+                s_int32 fid;
+            ] in
+            let len = Int32.of_int ((String.length data) + 4) in
+            s_int32 len ^ data
+
+        method deserialize package = () (* TODO *)
+    end
+
+class rStat _tag stat =
+    object (self)
+        inherit fcall
+
+        val mutable stat = stat
+        
+        initializer
+            mtype <- 125;
+            tag <- _tag
+
+        method serialize = "" (* TODO *)
+
+        method deserialize package =
+            self#check package;
+            stat <- d_stat package 7
+
+        method stat = stat
+    end
+
 (* TODO implement these: *)
 let tauth = String.make 1 (char_of_int 102)
 let rauth = String.make 1 (char_of_int 103)
-let tstat  = String.make 1 (char_of_int 124)
-let rstat  = String.make 1 (char_of_int 125)
 let twstat  = String.make 1 (char_of_int 126)
 let rwstat  = String.make 1 (char_of_int 127)

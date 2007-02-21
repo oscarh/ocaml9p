@@ -42,26 +42,11 @@ open Fcall
 
 type t = Unix.file_descr
 
-let msize = ref 4096
+let msize = ref 8192
 
 exception Socket_error of string
 exception IXPError of string
-
-type stat = {
-    ktype : int;
-    kdev : int;
-    q_type : int;
-    q_vers : int;
-    q_path : int;
-    mode : int;
-    atime : int;
-    mtime : int;
-    length : int;
-    name : string;
-    uid : string;
-    gid : string;
-    muid : string;
-}
+exception Internal_error of string
 
 (* File modes *)
 let oREAD = 0x00
@@ -75,9 +60,6 @@ let oRCLOSE = 0x40
 let oAPPEND = 0x80
 
 let delimiter_exp = Str.regexp "/"
-
-let (+=) ref inc =
-    ref := !ref + inc
 
 let deserialize obj package =
     try
@@ -101,7 +83,7 @@ let receive sockfd =
         let recv = Unix.recv sockfd buff in
         let rlen = recv 0 4 [] in
         if rlen = 0 then raise (Socket_error "Socket closed cleanly");
-        let plen = Fcall.d_int32 buff 0 in
+        let plen = Int32.to_int (Fcall.d_int32 buff 0) in
         let rlen = recv 4 plen [] in
         if rlen = 0 then raise (Socket_error "Socket closed cleanly")
         else String.sub buff 0 plen
@@ -111,16 +93,16 @@ let receive sockfd =
 let fopen fd fid mode =
     let topen = new tOpen fid mode in
     send fd topen#serialize;
-    let ropen = new rOpen topen#tag 0 in
+    let ropen = new rOpen topen#tag Int32.zero in
     deserialize ropen (receive fd);
     ropen#iounit
 
 let version fd = 
-    let tversion = new tVersion !msize in
+    let tversion = new tVersion (Int32.of_int !msize) in
     send fd tversion#serialize;
-    let rversion = new rVersion 0 in
+    let rversion = new rVersion Int32.zero in
     deserialize rversion (receive fd);
-    msize := rversion#msize
+    msize := Int32.to_int rversion#msize
 
 let walk fd oldfid reuse file =
     let wname = Str.split delimiter_exp file in
@@ -151,21 +133,26 @@ let read fd fid iounit offset count =
 
 (* Low level function *)
 let write fd fid iounit offset count data = 
-    let rec write offset count =
+    let rec write (offset : int64) (count : int32) data =
         let max_write = if iounit > count then count else iounit in
-        let d = String.sub data offset max_write in
+        let d = String.sub data 0 (Int32.to_int max_write) in
         let twrite = new tWrite fid offset max_write d in
         send fd twrite#serialize;
-        let rwrite = new rWrite twrite#tag 0 in
+        let rwrite = new rWrite twrite#tag Int32.zero in
         deserialize rwrite (receive fd);
-        if rwrite#count != max_write then 
-            (let msg = "Failed to write " ^ string_of_int max_write ^ 
-                " bytes" in
-            raise (IXPError msg));
-        if offset + max_write < count then
-            write (offset + max_write) (count - max_write) in
-    write offset count;
-    count
+        if rwrite#count != max_write then
+            (let msg = "Failed to write " ^ Int32.to_string max_write ^ 
+                " bytes" in raise (IXPError msg));
+        let i_64_max_write = (Int64.of_int32 max_write) in
+        let i_64_count = Int64.of_int32 count in
+        if Int64.add offset i_64_max_write < i_64_count then
+            let new_offset = Int64.add offset (Int64.of_int32 max_write) in
+            let new_count = Int32.sub count max_write in
+            let d = String.sub data (Int32.to_int max_write) 
+                (Int32.to_int new_count) in
+            write new_offset new_count d in
+    write offset count data;
+    count (* FIXME Should we keep track of how much we have written? *)
 
 let fwrite fd relfid file offset count data =
     let fid, iounit = walk_open fd relfid false file oWRITE in
@@ -182,7 +169,7 @@ let remove fd fid =
 let create fd fid name perm mode =
     let tcreate = new tCreate fid name perm mode in
     send fd tcreate#serialize;
-    let rcreate = new rCreate tcreate#tag 0 in
+    let rcreate = new rCreate tcreate#tag Int32.zero in
     deserialize rcreate (receive fd);
     rcreate#iounit
 
@@ -201,56 +188,15 @@ let connect address =
     fd
 
 let unpack_files data = 
-    let rec unpack_files data acc =
-        let offset = ref 0 in
-        (* De-serialize *)
-        let _ = Fcall.d_int16 data !offset in
-        offset += 2;
-        let ktype = Fcall.d_int16 data !offset in
-        offset += 2;
-        let kdev = Fcall.d_int32 data !offset in
-        offset += 4;
-        let q_type = Fcall.d_int8 data !offset in
-        offset += 1;
-        let q_vers = Fcall.d_int32 data !offset in
-        offset += 4;
-        let q_path = Fcall.d_int64 data !offset in
-        offset += 8;
-        let mode = Fcall.d_int32 data !offset in
-        offset += 4;
-        let atime = Fcall.d_int32 data !offset in
-        offset += 4;
-        let mtime = Fcall.d_int32 data !offset in
-        offset += 4;
-        let length = Fcall.d_int64 data !offset in
-        offset += 8;
-        let name = Fcall.d_str data !offset in
-        offset += ((String.length name) + 2);
-        let uid = Fcall.d_str data !offset in
-        offset += ((String.length uid) + 2);
-        let gid = Fcall.d_str data !offset in
-        offset += ((String.length gid) + 2);
-        let muid = Fcall.d_str data !offset in
-        offset += ((String.length muid) + 2);
-        let record = {
-            ktype = ktype;
-            kdev = kdev;
-            q_type = q_type;
-            q_vers = q_vers;
-            q_path = q_path;
-            mode = mode;
-            atime = atime;
-            mtime = mtime;
-            length = length;
-            name = name;
-            uid  = uid;
-            gid = gid;
-            muid = muid;
-        } in
-        if !offset < (String.length data) then
-            (let rest_len = (String.length data) - !offset in
-            let rest = String.sub data !offset rest_len in
-            unpack_files rest (record :: acc))
-        else
-            List.rev (record :: acc) in
-    unpack_files data []
+    try
+        let rec unpack_files data acc =
+            let record = Fcall.d_stat data 0 in
+            let stat_len = (Fcall.d_int16 data 0) + 2 in
+            if stat_len < (String.length data) then
+                (let rest_len = (String.length data) - stat_len in
+                let rest = String.sub data stat_len rest_len in
+                unpack_files rest (record :: acc))
+            else
+                List.rev (record :: acc) in
+        unpack_files data []
+    with _ -> raise (IXPError "invalid package, expected directory read")
