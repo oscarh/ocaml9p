@@ -88,19 +88,22 @@ let deserialize obj package =
         raise (IXPError error#message)
 
 let send sockfd data =
-    let data_len = String.length data in
-    let sent_len = Unix.send sockfd data 0 data_len [] in
-    if data_len != sent_len then raise (Socket_error "Socket closed cleanly")
+    try
+        let data_len = String.length data in
+        let sent_len = Unix.send sockfd data 0 data_len [] in
+        if data_len != sent_len then raise (Socket_error "Sent 0 bytes")
+    with Unix.Unix_error (num, "send", _) ->
+        raise (Socket_error (Unix.error_message num))
 
 let receive sockfd =
     try
         let buff = String.create !msize in
         let recv = Unix.recv sockfd buff in
         let rlen = recv 0 4 [] in
-        if rlen = 0 then raise (Socket_error "Received 0 bytes");
+        if rlen = 0 then raise (Socket_error "Socket closed cleanly");
         let plen = Fcall.d_int32 buff 0 in
         let rlen = recv 4 plen [] in
-        if rlen = 0 then raise (Socket_error "Received 0 bytes")
+        if rlen = 0 then raise (Socket_error "Socket closed cleanly")
         else String.sub buff 0 plen
     with Unix.Unix_error (num, "recv", _) ->
         raise (Socket_error (Unix.error_message num))
