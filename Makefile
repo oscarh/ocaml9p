@@ -65,8 +65,8 @@ $(CLIENT): $(CLOBJ)
 %.cmx: %.ml
 	$(OCAMLFIND) $(OCAMLOPT) -c $(INCLUDES) -package "$(REQUIRES)" $<
 
-htdoc: $(LIBMLI)
-	$(OCAMLDOC) -html -d doc $^
+htdoc: $(LIBCMI) $(LIBMLI)
+	$(OCAMLDOC) -html -I lib -d doc $(LIBMLI)
 
 .PHONY: clean
 clean:
