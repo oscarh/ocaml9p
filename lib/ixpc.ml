@@ -144,9 +144,10 @@ let write fd fid iounit offset count data =
         send fd twrite#serialize;
         let rwrite = new rWrite twrite#tag Int32.zero in
         deserialize rwrite (receive fd);
-        if rwrite#count != i32write_len then
+        if not (rwrite#count = i32write_len) then
             (let swrite_len = string_of_int write_len in
-            (let msg = "Failed to write " ^ swrite_len ^ " bytes" in 
+            (let msg = "Failed to write " ^ swrite_len ^ " bytes, " ^
+                  "wrote " ^ (Int32.to_string rwrite#count) in 
             raise (IXPError msg)));
         let i_64_count = Int64.of_int32 count in
         if Int64.add offset i64write_len < i_64_count then
