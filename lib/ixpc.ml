@@ -133,24 +133,25 @@ let read fd fid iounit offset count =
 
 (* Low level function *)
 let write fd fid iounit offset count data = 
-    let rec write (offset : int64) (count : int32) data =
-        let max_write = if iounit > count then count else iounit in
-        let d = String.sub data 0 (Int32.to_int max_write) in
-        let twrite = new tWrite fid offset max_write d in
+    let rec write offset count data =
+        let i32write_len = if iounit > count then count else iounit in
+        let write_len = Int32.to_int i32write_len in
+        let i64write_len = Int64.of_int write_len in
+        let d = String.sub data 0 write_len in
+        let twrite = new tWrite fid offset i32write_len d in
         send fd twrite#serialize;
         let rwrite = new rWrite twrite#tag Int32.zero in
         deserialize rwrite (receive fd);
-        if rwrite#count != max_write then
-            (let msg = "Failed to write " ^ Int32.to_string max_write ^ 
-                " bytes" in raise (IXPError msg));
-        let i_64_max_write = (Int64.of_int32 max_write) in
+        if rwrite#count != i32write_len then
+            (let swrite_len = string_of_int write_len in
+            (let msg = "Failed to write " ^ swrite_len ^ " bytes" in 
+            raise (IXPError msg)));
         let i_64_count = Int64.of_int32 count in
-        if Int64.add offset i_64_max_write < i_64_count then
-            let new_offset = Int64.add offset (Int64.of_int32 max_write) in
-            let new_count = Int32.sub count max_write in
-            let d = String.sub data (Int32.to_int max_write) 
-                (Int32.to_int new_count) in
-            write new_offset new_count d in
+        if Int64.add offset i64write_len < i_64_count then
+            let new_offset = Int64.add offset i64write_len in
+            let new_count = Int32.sub count i32write_len in
+            let rest = String.sub data write_len (Int32.to_int new_count) in
+            write new_offset new_count rest in
     write offset count data;
     count (* FIXME Should we keep track of how much we have written? *)
 
