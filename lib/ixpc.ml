@@ -44,8 +44,8 @@ type t = Unix.file_descr
 
 let msize = ref 4096
 
-exception Socket_error
-exception IXPError
+exception Socket_error of string
+exception IXPError of string
 
 type stat = {
     ktype : int;
@@ -79,33 +79,44 @@ let delimiter_exp = Str.regexp "/"
 let (+=) ref inc =
     ref := !ref + inc
 
+let deserialize obj package =
+    try
+        obj#deserialize package
+    with Fcall.Illegal_package_type 107 ->
+        let error = new rError obj#tag "" in
+        error#deserialize package;
+        raise (IXPError error#message)
+
 let send sockfd data =
     let data_len = String.length data in
     let sent_len = Unix.send sockfd data 0 data_len [] in
-    if data_len != sent_len then raise Socket_error
+    if data_len != sent_len then raise (Socket_error "Socket closed cleanly")
 
 let receive sockfd =
+    try
         let buff = String.create !msize in
         let recv = Unix.recv sockfd buff in
         let rlen = recv 0 4 [] in
-        if rlen = 0 then raise Socket_error;
+        if rlen = 0 then raise (Socket_error "Received 0 bytes");
         let plen = Fcall.d_int32 buff 0 in
         let rlen = recv 4 plen [] in
-        if rlen = 0 then raise Socket_error
+        if rlen = 0 then raise (Socket_error "Received 0 bytes")
         else String.sub buff 0 plen
+    with Unix.Unix_error (num, "recv", _) ->
+        raise (Socket_error (Unix.error_message num))
             
 let fopen fd fid mode =
     let topen = new tOpen fid mode in
     send fd topen#serialize;
     let ropen = new rOpen topen#tag 0 in
-    ropen#deserialize (receive fd);
+    deserialize ropen (receive fd);
     ropen#iounit
 
 let version fd = 
     let tversion = new tVersion !msize in
     send fd tversion#serialize;
     let rversion = new rVersion 0 in
-    rversion#deserialize (receive fd);
+    deserialize rversion (receive fd);
     msize := rversion#msize
 
 let walk fd oldfid reuse file =
@@ -113,7 +124,7 @@ let walk fd oldfid reuse file =
     let twalk = new tWalk oldfid reuse wname in
     send fd twalk#serialize;
     let rwalk = new rWalk twalk#tag 0 in
-    rwalk#deserialize (receive fd);
+    deserialize rwalk (receive fd);
     twalk#newfid
 
 (* Returns (fid * iounit) *)
@@ -180,14 +191,14 @@ let clunk fd fid =
     let tclunk = new tClunk fid in
     send fd tclunk#serialize;
     let rclunk = new rClunk tclunk#tag in
-    rclunk#deserialize (receive fd)
+    deserialize rclunk (receive fd)
 
 (* Low level function *)
 let read fd fid iounit offset count =
     let tread = new tRead fid offset count in
     send fd tread#serialize;
     let rread = new rRead tread#tag "" in
-    rread#deserialize (receive fd);
+    deserialize rread (receive fd);
     rread#data
 
 (* Low level function *)
@@ -198,8 +209,11 @@ let write fd fid iounit offset count data =
         let twrite = new tWrite fid offset max_write d in
         send fd twrite#serialize;
         let rwrite = new rWrite twrite#tag 0 in
-        rwrite#deserialize (receive fd);
-        if rwrite#count != max_write then raise IXPError;
+        deserialize rwrite (receive fd);
+        if rwrite#count != max_write then 
+            (let msg = "Failed to write " ^ string_of_int max_write ^ 
+                " bytes" in
+            raise (IXPError msg));
         if offset + max_write < count then
             write (offset + max_write) (count - max_write) in
     write offset count;
@@ -215,20 +229,20 @@ let remove fd fid =
     let tremove = new tRemove fid in
     send fd tremove#serialize;
     let rremove = new rRemove tremove#tag in
-    rremove#deserialize (receive fd)
+    deserialize rremove (receive fd)
 
 let create fd fid name perm mode =
     let tcreate = new tCreate fid name perm mode in
     send fd tcreate#serialize;
     let rcreate = new rCreate tcreate#tag 0 in
-    rcreate#deserialize (receive fd);
+    deserialize rcreate (receive fd);
     rcreate#iounit
 
 let attach fd user aname = 
     let tattach = new tAttach None user aname in
     send fd tattach#serialize;
     let rattach = new rAttach tattach#tag in
-    rattach#deserialize (receive fd);
+    deserialize rattach (receive fd);
     tattach#fid
 
 let connect address =

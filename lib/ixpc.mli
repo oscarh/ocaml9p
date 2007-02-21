@@ -41,11 +41,11 @@ Primarily written to be used with {{:http://www.suckless.org/wmii} WMII}.
 (** The type of an IXP connection *)
 type t
 
-(** Thrown if there is a socket error *)
-exception Socket_error
+(** Error in the underlying socket communication *)
+exception Socket_error of string
 
-(** Some internal IXPError *)
-exception IXPError
+(** Remote IXPError *)
+exception IXPError of string
 
 (** {2 Records} *)
 
