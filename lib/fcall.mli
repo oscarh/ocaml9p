@@ -75,10 +75,6 @@ exception Wrong_tag of int * int
 (** {2 Serialization functions} *)
 
 (** 
-FIXME some of these functions should take Int32.t or Int64.t values
-*)
-
-(** 
 [s_intx bytes value] serialize integer of value [value]. The integer will
 take up [bytes] bytes (octets) in the string returned.
 *)
