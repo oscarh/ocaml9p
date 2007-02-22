@@ -218,5 +218,8 @@ let unpack_files data =
                 unpack_files rest (record :: acc))
             else
                 List.rev (record :: acc) in
-        unpack_files data []
+        if String.length data > 0 then
+           unpack_files data []
+        else 
+           []
     with _ -> raise (IXPError "invalid package, expected directory read")
