@@ -668,6 +668,7 @@ class tStat fid =
         method serialize =
             let data = concat [
                 s_int8 mtype;
+                s_int16 tag;
                 s_int32 fid;
             ] in
             let len = Int32.of_int ((String.length data) + 4) in
