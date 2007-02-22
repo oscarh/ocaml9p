@@ -67,8 +67,8 @@ let notag = 255
 
 let _tag = ref 0
 let new_tag () =
-    let t = !_tag in
-    _tag := t + 1;
+    let t = !_tag + 1 in
+    if t < 1 lsl 16 then _tag := t else _tag := 0;
     t
 
 let nofid = String.make 4 (char_of_int 255)
