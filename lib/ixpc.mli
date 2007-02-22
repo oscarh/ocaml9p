@@ -59,10 +59,32 @@ val oREXEC : int
 val oRCLOSE : int
 val oAPPEND : int
 
-(**
-Represents the mode of a directory
-*)
-val mDIR : Int32.t
+(** Mode bit for directories *)
+val dMDIR : int32
+
+(** Mode bit for append only files *)
+val  dMAPPEND : int32
+
+(** Mode bit for exclusive use files *)
+val  dMEXCL : int32
+
+(** Mode bit for mounted channel *)
+val  dMMOUNT : int32
+
+(** Mode bit for authentication file *)
+val  dMAUTH : int32
+
+(** Mode bit for non-backed-up file *)
+val  dMTMP : int32
+
+(** Mode bit for read permission *)
+val  dMREAD : int32
+
+(** Mode bit for write permission *)
+val  dMWRITE : int32
+
+(** Mode bit for execute permission *)
+val  dMEXEC : int32
 
 
 (** {2 IXPC client interface functions} *)

@@ -59,7 +59,16 @@ let oREXEC = 0x20
 let oRCLOSE = 0x40
 let oAPPEND = 0x80
 
-let mDIR  = Int32.shift_left Int32.one 31
+(* Mode bits for files / dirs *)
+let dMDIR  = Int32.shift_left Int32.one 31
+let dMAPPEND = Int32.shift_left Int32.one 30
+let dMEXCL = Int32.shift_left Int32.one 29
+let dMMOUNT = Int32.shift_left Int32.one 28	
+let dMAUTH = Int32.shift_left Int32.one 27 
+let dMTMP = Int32.shift_left Int32.one 26
+let dMREAD = Int32.shift_left (Int32.of_int 0x4) 6
+let dMWRITE = Int32.shift_left (Int32.of_int 0x2) 6
+let dMEXEC = Int32.shift_left (Int32.of_int 0x1) 6 
 
 let delimiter_exp = Str.regexp "/"
 

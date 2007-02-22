@@ -53,7 +53,7 @@ let print_file dir =
     let group = dir.Fcall.gid in
     let name = dir.Fcall.name in
     let size = Int64.to_int (dir.Fcall.length) in
-    let dirmarker = if Int32.logand dir.Fcall.mode Ixpc.mDIR = Ixpc.mDIR then
+    let dirmarker = if Int32.logand dir.Fcall.mode Ixpc.dMDIR = Ixpc.dMDIR then
         "/" 
     else 
         "" in
