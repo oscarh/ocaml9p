@@ -38,7 +38,7 @@
 open Printf
 
 type cmd = Read of string | Write of string | Ls of string 
-        | Create of (string * string) | Remove of string
+        | Create of string | Remove of string
 
 let adrs_exp = Str.regexp "unix!\\(.+\\)"
 let wmii_address =
@@ -104,24 +104,30 @@ let ls address dir =
     print_dirs (Ixpc.unpack_files data);
     Ixpc.clunk conn fid
 
-let create name dir =
+let create file =
     let conn = Ixpc.connect wmii_address in
-    let fid = Ixpc.attach conn user dir in
-    let newfid = Ixpc.create conn fid name (Int32.of_int 666) Ixpc.oWRITE in
+    let fid = Ixpc.attach conn user "/" in
+    let splitexp = Str.regexp "\\(.+\\)/\\([0-9A-Za-z_-]+\\)$" in
+    let dir, file = if Str.string_match splitexp file 0 then
+            (Str.matched_group 1 file, Str.matched_group 2 file)
+        else
+            ("/", file) in
+    let newfid = Ixpc.walk conn fid false dir in
+    let _ = Ixpc.create conn newfid file Ixpc.dMWRITE  Ixpc.oWRITE in
     Ixpc.clunk conn newfid;
     Ixpc.clunk conn fid
 
 let remove name =
     let conn = Ixpc.connect wmii_address in
     let fid = Ixpc.attach conn user "/" in
-    let fid = Ixpc.walk conn fid true name in
-    Ixpc.clunk conn fid
+    let _ = Ixpc.walk conn fid true name in
+    Ixpc.remove conn fid
 
 let run address cmd =
     try 
         match cmd with
         | Read file -> read address file
-        | Create (name, dir) -> create name dir
+        | Create file -> create file
         | Remove name -> remove name
         | Write file -> write address file
         | Ls dir -> ls address dir
@@ -134,7 +140,7 @@ let main () =
     let ixp_address = ref wmii_address in
     let usage = "usage: " ^ 
         Sys.argv.(0) ^ " [-a <address>] read | write | ls <file>" ^
-        "\ncreate <name>   - Create a file in dir with name\n" ^
+        "\ncreate        - Create a file\n" ^
         "remove          - Create file\n" ^
         "read            - Read from a file\n" ^
         "write           - Write from a file\n" ^
@@ -143,8 +149,7 @@ let main () =
     let rec parse i =
         if i < (Array.length Sys.argv) - 1 then
             let next = match Sys.argv.(i) with
-            | "create" -> if Array.length Sys.argv > i + 2 then
-                cmd := Some (Create (Sys.argv.(i + 1), Sys.argv.(i + 2))); i + 3
+            | "create" -> cmd := Some (Create Sys.argv.(i + 1)); i + 2
             | "remove" -> cmd := Some (Remove Sys.argv.(i + 1)); i + 2
             | "read" -> cmd := Some (Read Sys.argv.(i + 1)); i + 2
             | "write" -> cmd := Some (Write Sys.argv.(i + 1)); i + 2
