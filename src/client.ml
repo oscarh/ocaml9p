@@ -107,12 +107,13 @@ let ls address dir =
 let create file =
     let conn = Ixpc.connect wmii_address in
     let fid = Ixpc.attach conn user "/" in
-    let splitexp = Str.regexp "\\(.+\\)/\\([0-9A-Za-z_-]+\\)$" in
-    let dir, file = if Str.string_match splitexp file 0 then
-            (Str.matched_group 1 file, Str.matched_group 2 file)
-        else
-            ("/", file) in
+    let index = try String.rindex file '/' with Not_found -> 0 in
+    let dir = String.sub file 0 index in
+    let file = 
+        String.sub file (index + 1) ((String.length file) - (index + 1)) in
     let newfid = Ixpc.walk conn fid false dir in
+    print_string ("Creating: " ^ file ^ " in " ^ dir);
+    print_newline ();
     let _ = Ixpc.create conn newfid file Ixpc.dMWRITE  Ixpc.oWRITE in
     Ixpc.clunk conn newfid;
     Ixpc.clunk conn fid
