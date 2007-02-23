@@ -112,8 +112,6 @@ let create file =
     let file = 
         String.sub file (index + 1) ((String.length file) - (index + 1)) in
     let newfid = Ixpc.walk conn fid false dir in
-    print_string ("Creating: " ^ file ^ " in " ^ dir);
-    print_newline ();
     let _ = Ixpc.create conn newfid file Ixpc.dMWRITE  Ixpc.oWRITE in
     Ixpc.clunk conn newfid;
     Ixpc.clunk conn fid
