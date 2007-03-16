@@ -16,15 +16,15 @@ INCLUDES = -I lib
 PREFIX = /usr/local
 
 # Sources
-LIBSRC = lib/fcall.ml lib/ixpc.ml
+LIBSRC = lib/fcall.ml lib/o9pc.ml
 CLSRC = src/client.ml
 
 # The output to create
-CLIENT = oixpc
-LIB = ixp.cma
-LIBX = ixp.cmxa
+CLIENT = o9pc
+LIB = o9p.cma
+LIBX = o9p.cmxa
 
-NAME=ixp
+NAME=o9p
 
 # Automagic stuff below
 

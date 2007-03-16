@@ -1,5 +1,5 @@
 (******************************************************************************)
-(* OCaml-IXP                                                                  *)
+(* OCaml-9P                                                                  *)
 (*                                                                            *)
 (* Copyright 2007 Oscar Hellström, oscar at oscarh dot net.                   *)
 (* All rights reserved                                                        *)
@@ -31,7 +31,7 @@
 (******************************************************************************)
 
 (*
- * IXP Client
+ * 9P Client
  * http://v9fs.sourceforge.net/rfc/
  *)
 
@@ -41,10 +41,6 @@ type cmd = Read of string | Write of string | Ls of string
         | Create of string | Remove of string
 
 let adrs_exp = Str.regexp "unix!\\(.+\\)"
-let wmii_address =
-    let adrs = Sys.getenv "WMII_ADDRESS" in
-    if Str.string_match adrs_exp adrs 0 then Str.matched_group 1 adrs
-    else adrs
 
 let user = Sys.getenv "USER"
 
@@ -53,7 +49,7 @@ let print_file dir =
     let group = dir.Fcall.gid in
     let name = dir.Fcall.name in
     let size = Int64.to_int (dir.Fcall.length) in
-    let dirmarker = if Int32.logand dir.Fcall.mode Ixpc.dMDIR = Ixpc.dMDIR then
+    let dirmarker = if Int32.logand dir.Fcall.mode O9pc.dMDIR = O9pc.dMDIR then
         "/" 
     else 
         "" in
@@ -68,19 +64,19 @@ let print_dirs dirs =
 
 (* Returns fid * iounit *)
 let open_fid address file =
-    let conn = Ixpc.connect address in
-    let rootfid = Ixpc.attach conn user "/" in
-    let _, iounit = Ixpc.walk_open conn rootfid true file Ixpc.oREAD in
+    let conn = O9pc.connect address in
+    let rootfid = O9pc.attach conn user "/" in
+    let _, iounit = O9pc.walk_open conn rootfid true file O9pc.oREAD in
     (conn, rootfid, iounit)
 
 let write address file =
     let buff = String.create 4096 in
     let len = (input stdin buff 0 4096) - 1 in
     let data = String.sub buff 0 len in
-    let conn = Ixpc.connect address in
-    let rootfid = Ixpc.attach conn user "/" in
+    let conn = O9pc.connect address in
+    let rootfid = O9pc.attach conn user "/" in
     let i32len = Int32.of_int len in
-    let count = Ixpc.fwrite conn rootfid file Int64.zero i32len data in
+    let count = O9pc.fwrite conn rootfid file Int64.zero i32len data in
     if count != i32len then
         printf "Warning: Could only write %d bytes" (Int32.to_int count)
 
@@ -88,57 +84,61 @@ let read address file =
     let conn, fid, iounit = open_fid address file in
     let rec read offset =
         let max_len = Int32.of_int 4096 in
-        let data = Ixpc.read conn fid iounit offset max_len in
+        let data = O9pc.read conn fid iounit offset max_len in
         print_string data;
         flush stdout;
         let len = String.length data in
         if len > 0 then
             read (Int64.add offset (Int64.of_int len)) in
     read Int64.zero;
-    Ixpc.clunk conn fid
+    O9pc.clunk conn fid
 
 let ls address dir =
     let conn, fid, iounit = open_fid address dir in
     let max_len = Int32.of_int 4096 in
-    let data = Ixpc.read conn fid iounit Int64.zero max_len in
-    print_dirs (Ixpc.unpack_files data);
-    Ixpc.clunk conn fid
+    let data = O9pc.read conn fid iounit Int64.zero max_len in
+    print_dirs (O9pc.unpack_files data);
+    O9pc.clunk conn fid
 
-let create file =
-    let conn = Ixpc.connect wmii_address in
-    let fid = Ixpc.attach conn user "/" in
+let create address file =
+    let conn = O9pc.connect address in
+    let fid = O9pc.attach conn user "/" in
     let index = try String.rindex file '/' with Not_found -> 0 in
     let dir = String.sub file 0 index in
     let file = 
         String.sub file (index + 1) ((String.length file) - (index + 1)) in
-    let newfid = Ixpc.walk conn fid false dir in
-    let _ = Ixpc.create conn newfid file Ixpc.dMWRITE  Ixpc.oWRITE in
-    Ixpc.clunk conn newfid;
-    Ixpc.clunk conn fid
+    let newfid = O9pc.walk conn fid false dir in
+    let _ = O9pc.create conn newfid file O9pc.dMWRITE  O9pc.oWRITE in
+    O9pc.clunk conn newfid;
+    O9pc.clunk conn fid
 
-let remove name =
-    let conn = Ixpc.connect wmii_address in
-    let fid = Ixpc.attach conn user "/" in
-    let _ = Ixpc.walk conn fid true name in
-    Ixpc.remove conn fid
+let remove address name =
+    let conn = O9pc.connect address in
+    let fid = O9pc.attach conn user "/" in
+    let _ = O9pc.walk conn fid true name in
+    O9pc.remove conn fid
 
 let run address cmd =
+	let address = if Str.string_match adrs_exp address 0 then 
+		Str.matched_group 1 address
+    else 
+		address in
     try 
         match cmd with
         | Read file -> read address file
-        | Create file -> create file
-        | Remove name -> remove name
+        | Create file -> create address file
+        | Remove name -> remove address name
         | Write file -> write address file
         | Ls dir -> ls address dir
-    with Ixpc.IXPError str ->
+    with O9pc.Client_error str ->
         print_string ("Error: " ^ str);
         print_newline ()
 
 let main () =
     let cmd = ref None in
-    let ixp_address = ref wmii_address in
+    let socket_address = ref None in
     let usage = "usage: " ^ 
-        Sys.argv.(0) ^ " [-a <address>] read | write | ls <file>" ^
+        Sys.argv.(0) ^ " -a <address> read | write | ls <file>" ^
         "\ncreate        - Create a file\n" ^
         "remove          - Create file\n" ^
         "read            - Read from a file\n" ^
@@ -153,12 +153,15 @@ let main () =
             | "read" -> cmd := Some (Read Sys.argv.(i + 1)); i + 2
             | "write" -> cmd := Some (Write Sys.argv.(i + 1)); i + 2
             | "ls" -> cmd := Some (Ls Sys.argv.(i + 1)); i + 2
-            | "-a" -> ixp_address := Sys.argv.(i + 1); i + 2
+            | "-a" -> socket_address := Some (Sys.argv.(i + 1)); i + 2
             | _ -> cmd := None; Array.length Sys.argv in
             if next < Array.length Sys.argv then parse next in
     if Array.length Sys.argv > 1 then parse 1;
+	match !socket_address with
+	| None -> printf "%s\n" usage; exit 1
+	| Some address -> 
     match !cmd with
-    | Some command -> run !ixp_address command
-    | None -> print_string usage; print_newline ()
+    | None -> printf "%s\n" usage; exit 1
+    | Some command -> run address command
 
 let _ = main ()

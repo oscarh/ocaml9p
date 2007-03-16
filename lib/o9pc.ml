@@ -1,5 +1,5 @@
 (******************************************************************************)
-(* OCaml-IXP                                                                  *)
+(* OCaml-9P                                                                  *)
 (*                                                                            *)
 (* Copyright 2007 Oscar Hellström, oscar at oscarh dot net.                   *)
 (* All rights reserved                                                        *)
@@ -31,7 +31,7 @@
 (******************************************************************************)
 
 (*
- * IXP Library Client interface.
+ * 9P Library Client interface.
  * http://v9fs.sourceforge.net/rfc/
  *
  * Primarily written to be used with WMII.
@@ -45,7 +45,7 @@ type t = Unix.file_descr
 let msize = ref 8192
 
 exception Socket_error of string
-exception IXPError of string
+exception Client_error of string
 exception Internal_error of string
 
 (* File modes *)
@@ -78,7 +78,7 @@ let deserialize obj package =
     with Fcall.Illegal_package_type 107 ->
         let error = new rError obj#tag "" in
         error#deserialize package;
-        raise (IXPError error#message)
+        raise (Client_error error#message)
 
 let send sockfd data =
     try
@@ -157,7 +157,7 @@ let write fd fid iounit offset count data =
             (let swrite_len = string_of_int write_len in
             (let msg = "Failed to write " ^ swrite_len ^ " bytes, " ^
                   "wrote " ^ (Int32.to_string rwrite#count) in 
-            raise (IXPError msg)));
+            raise (Client_error msg)));
         let i_64_count = Int64.of_int32 count in
         if Int64.add offset i64write_len < i_64_count then
             let new_offset = Int64.add offset i64write_len in
@@ -222,4 +222,4 @@ let unpack_files data =
            unpack_files data []
         else 
            []
-    with _ -> raise (IXPError "invalid package, expected directory read")
+    with _ -> raise (Client_error "invalid package, expected directory read")

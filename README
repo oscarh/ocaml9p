@@ -1,11 +1,11 @@
-OCaml-IXP
+OCaml-9P
 Copyright 2007 Oscar Hellström, oscar at oscarh dot net
 
-1. What is OCaml-IXP
+1. What is OCaml-9P
 2. Installation
 
-1. What is OCaml-IXP
-OCaml-IXP is an OCaml implementation of the 9P file system protocol, and is
+1. What is OCaml-9P
+OCaml-9P is an OCaml implementation of the 9P file system protocol, and is
 intended to be used as a library.
 Currently, only the client part of the protocol is (partly) implemented.
 It can be used to implement a 9P client. The implementation is inspired
@@ -13,6 +13,8 @@ by libixp (http://www.suckless.org/wiki/libs/libixp) and Ruby-IXP
 (http://home.gna.org/rubyixp/).
 It was primarily created to be used with Window Manager Improved
 (http://www.suckless.org/wiki/wmii).
+
+OCaml-9P used to be named OCaml-IXP. 
 
 2. Installation
 The usual installation is just a matter of:

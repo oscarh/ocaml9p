@@ -1,5 +1,5 @@
 (******************************************************************************)
-(* OCaml-IXP                                                                  *)
+(* OCaml-9P                                                                  *)
 (*                                                                            *)
 (* Copyright 2007 Oscar Hellström, oscar at oscarh dot net.                   *)
 (* All rights reserved                                                        *)
@@ -31,11 +31,11 @@
 (******************************************************************************)
 
 (**
-IXP Library serialization / de-serialization interface.
+9P Library serialization / de-serialization interface.
 {{:http://v9fs.sourceforge.net/rfc/} http://v9fs.sourceforge.net/rfc/}
 
-Object Oriented interface to the IXP packages.
-Primarily meant to be used through the Ixpc module.
+Object Oriented interface to the 9P packages.
+Primarily meant to be used through the [o9pc] module.
  *)
 
 (** Version of the protocol (currently there is only one) *)

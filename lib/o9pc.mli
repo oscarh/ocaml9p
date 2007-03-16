@@ -1,5 +1,5 @@
 (******************************************************************************)
-(* OCaml-IXP                                                                  *)
+(* OCaml-9P                                                                  *)
 (*                                                                            *)
 (* Copyright 2007 Oscar Hellström, oscar at oscarh dot net.                   *)
 (* All rights reserved                                                        *)
@@ -31,21 +31,21 @@
 (******************************************************************************)
 (**
 
-IXP Library Client interface.
+9P Library Client interface.
 {{:http://v9fs.sourceforge.net/rfc/} http://v9fs.sourceforge.net/rfc/}
 
 Primarily written to be used with {{:http://www.suckless.org/wmii} WMII}.
 
 *)
 
-(** The type of an IXP connection *)
+(** The type of an 9P connection *)
 type t
 
 (** Error in the underlying socket communication *)
 exception Socket_error of string
 
-(** Remote IXPError *)
-exception IXPError of string
+(** Remote Client_error *)
+exception Client_error of string
 
 (** {2 File Modes} *)
 
@@ -87,7 +87,7 @@ val  dMWRITE : int32
 val  dMEXEC : int32
 
 
-(** {2 IXPC client interface functions} *)
+(** {2 9P client interface functions} *)
 
 (**
 [connect sockaddr] connects to the Unix socket [sockaddr]. Returns a
