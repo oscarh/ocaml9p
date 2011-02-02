@@ -1,0 +1,13 @@
+*.cmi
+*.cmo
+*.cmx
+*.o
+*.a
+*.cma
+*.cmxa
+o9pc
+
+
+# vim files
+.*.swp
+.*.swo
